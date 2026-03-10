@@ -4,7 +4,7 @@ import path from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@': path.resolve(process.cwd(), '.'),
+      '@': path.resolve(process.cwd(), 'src'),
     },
   },
   test: {
