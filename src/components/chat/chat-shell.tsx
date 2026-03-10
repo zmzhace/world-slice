@@ -1,4 +1,5 @@
 import React from 'react'
+import type { WorldSlice } from '@/domain/world'
 import { ChatInput } from './chat-input'
 import { MessageList } from './message-list'
 
@@ -10,9 +11,14 @@ type ChatMessage = {
 type ChatResponse = {
   reply: string
   worldSummary: string
+  world?: WorldSlice
 }
 
-export function ChatShell() {
+type ChatShellProps = {
+  onWorldUpdate?: (world: WorldSlice) => void
+}
+
+export function ChatShell({ onWorldUpdate }: ChatShellProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [summary, setSummary] = React.useState<string>('')
   const [input, setInput] = React.useState('')
@@ -34,6 +40,9 @@ export function ChatShell() {
 
     setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
     setSummary(data.worldSummary)
+    if (data.world && onWorldUpdate) {
+      onWorldUpdate(data.world)
+    }
     setLoading(false)
   }
 
