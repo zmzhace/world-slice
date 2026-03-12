@@ -67,15 +67,36 @@ Return as JSON array with this structure:
     ],
   })
 
-  const content = response.content[0]
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type from Claude')
+  // Handle both standard and streaming responses
+  let responseText = ''
+  
+  if (typeof response === 'string') {
+    // Parse SSE format
+    const lines = response.split('\n')
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.substring(6))
+          if (data.type === 'content_block_delta' && data.delta?.text) {
+            responseText += data.delta.text
+          }
+        } catch (e) {
+          // Skip invalid JSON lines
+        }
+      }
+    }
+  } else if (response.content && response.content[0]) {
+    // Standard Anthropic format
+    const content = response.content[0]
+    if (content.type === 'text') {
+      responseText = content.text
+    }
   }
 
   // Extract JSON from response
-  const jsonMatch = content.text.match(/\[[\s\S]*\]/)
+  const jsonMatch = responseText.match(/\[[\s\S]*\]/)
   if (!jsonMatch) {
-    throw new Error('Failed to parse agent specifications from Claude response')
+    throw new Error('Failed to parse agent specifications from response')
   }
 
   const specs: AgentSpec[] = JSON.parse(jsonMatch[0])
