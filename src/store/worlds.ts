@@ -1,8 +1,10 @@
+import type { WorldSlice } from '@/domain/world'
+
 export type WorldRecord = {
   id: string
   worldPrompt: string
   personaPrompt?: string
-  worldSnapshot?: unknown
+  worldSnapshot?: WorldSlice
   createdAt: string
   updatedAt: string
 }
@@ -36,10 +38,23 @@ export function getWorld(id: string): WorldRecord | null {
   return readAll().find((world) => world.id === id) ?? null
 }
 
+function generateUUID(): string {
+  // Fallback for environments without crypto.randomUUID
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Simple UUID v4 implementation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 export function createWorld(input: { worldPrompt: string }): WorldRecord {
   const now = new Date().toISOString()
   const record: WorldRecord = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     worldPrompt: input.worldPrompt,
     createdAt: now,
     updatedAt: now,
@@ -58,3 +73,8 @@ export function updateWorld(id: string, patch: Partial<WorldRecord>): WorldRecor
   writeAll(worlds)
   return next
 }
+
+export function saveWorldSnapshot(id: string, snapshot: WorldSlice): WorldRecord | null {
+  return updateWorld(id, { worldSnapshot: snapshot })
+}
+

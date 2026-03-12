@@ -24,6 +24,7 @@ type AgentSpec = {
     aging_index: number
   }
   backstory?: string
+  goals?: string[]
 }
 
 export async function generatePersonalAgents(
@@ -44,7 +45,10 @@ For each agent, provide:
 - A unique seed identifier (kebab-case, descriptive)
 - Persona traits (openness, stability, attachment, agency, empathy) as values 0-1
 - Initial vitals (energy, stress, sleep_debt, focus, aging_index) as values 0-1
-- A brief backstory or motivation (optional)
+- A brief backstory or motivation
+- Specific goals (array of 2-3 concrete goals related to the world context)
+
+IMPORTANT: Each agent should have clear, actionable goals that drive their behavior.
 
 Return as JSON array with this structure:
 [
@@ -52,7 +56,8 @@ Return as JSON array with this structure:
     "seed": "curious-explorer",
     "persona": { "openness": 0.8, "stability": 0.6, "attachment": 0.5, "agency": 0.7, "empathy": 0.6 },
     "vitals": { "energy": 0.8, "stress": 0.2, "sleep_debt": 0.1, "focus": 0.7, "aging_index": 0.1 },
-    "backstory": "A curious soul driven by wonder"
+    "backstory": "A curious soul driven by wonder",
+    "goals": ["探索未知的遗迹", "寻找失落的知识", "结交志同道合的伙伴"]
   }
 ]`
 
@@ -71,10 +76,9 @@ Return as JSON array with this structure:
   let responseText = ''
   
   // Parse SSE format or standard format
-  const responseAny = response as any
-  if (typeof responseAny === 'string') {
+  if (typeof response === 'string') {
     // Parse SSE format
-    const lines = responseAny.split('\n')
+    const lines = response.split('\n')
     for (const line of lines) {
       if (line.startsWith('data: ')) {
         try {
@@ -87,13 +91,20 @@ Return as JSON array with this structure:
         }
       }
     }
-  } else if (responseAny.content && responseAny.content[0]) {
+  } else if (response.content && response.content.length > 0) {
     // Standard Anthropic format
-    const content = responseAny.content[0]
-    if (content.type === 'text') {
-      responseText = content.text
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        responseText += block.text
+      }
     }
   }
+
+  if (!responseText) {
+    throw new Error('No text content in response')
+  }
+
+  console.log('Agent generator response:', responseText)
 
   // Extract JSON from response
   const jsonMatch = responseText.match(/\[[\s\S]*\]/)
@@ -110,6 +121,7 @@ Return as JSON array with this structure:
       ...agent,
       persona: spec.persona,
       vitals: spec.vitals,
+      goals: spec.goals || [],  // 使用生成的目标
     }
   })
 }

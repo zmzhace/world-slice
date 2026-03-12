@@ -69,6 +69,7 @@ export type WorldSlice = {
     nuwa: { kind: 'persona'; id: string }
     personal: PersonalAgentState
     social: { kind: 'social'; id: string }
+    npcs: PersonalAgentState[]  // 女娲生成的NPC agents
   }
   events: Array<{ id: string; type: string; timestamp: string; payload?: Record<string, unknown> }>
   relations: Record<string, number>
@@ -117,6 +118,7 @@ export function createInitialWorldSlice(): WorldSlice {
         action_history: [],
       },
       social: { kind: 'social', id: 'social-1' },
+      npcs: [],  // 女娲生成的NPC agents
     },
     events: [],
     relations: {},

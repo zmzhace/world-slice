@@ -4,6 +4,7 @@ import { applyMemoryDecay } from './memory'
 import { updateVitalsAfterTick } from './vitals'
 import { applyPersonaDrift } from './persona'
 import { mapSearchResultsToSocialContext } from '@/server/search/mapper'
+import { executeNpcAgents } from './npc-agent-executor'
 import type { AgentAction } from '@/domain/actions'
 import type { WorldSlice } from '@/domain/world'
 import type { SearchSignal } from '@/domain/search'
@@ -22,10 +23,22 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const nextTick = world.tick + 1
   const timestamp = new Date(Date.parse(world.time) + 1000).toISOString()
 
+  // Parallel update for personal agent
   const updatedMemoryShort = applyMemoryDecay(world.agents.personal.memory_short)
   const updatedMemoryLong = applyMemoryDecay(world.agents.personal.memory_long)
   const updatedVitals = updateVitalsAfterTick(world.agents.personal.vitals)
   const updatedPersona = applyPersonaDrift(world.agents.personal.persona, [])
+
+  // Parallel update for all NPC agents
+  const updatedNpcs = await Promise.all(
+    world.agents.npcs.map(async (npc) => ({
+      ...npc,
+      memory_short: applyMemoryDecay(npc.memory_short),
+      memory_long: applyMemoryDecay(npc.memory_long),
+      vitals: updateVitalsAfterTick(npc.vitals),
+      persona: applyPersonaDrift(npc.persona, []),
+    }))
+  )
 
   const searchResults = options.search ? await options.search() : []
   const mappedContext = searchResults.length
@@ -77,6 +90,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
         persona: updatedPersona,
         action_history: [...world.agents.personal.action_history, { type: action.type, timestamp }],
       },
+      npcs: updatedNpcs,
     },
   }
 
@@ -85,8 +99,19 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     return baseNext
   }
 
-  const results = await options.panguRegistry.runAll(world)
-  const patch = arbitratePatches(results as { agentId: string; patch?: any; error?: string }[])
+  // 并行执行 Pangu agents 和 NPC agents
+  const [panguResults, npcResults] = await Promise.all([
+    options.panguRegistry.runAll(world),
+    executeNpcAgents(world),
+  ])
+
+  // 合并所有 agent 的结果
+  const allResults = [
+    ...panguResults,
+    ...npcResults.map(r => ({ agentId: r.agentId, patch: r.patch })),
+  ]
+
+  const patch = arbitratePatches(allResults as { agentId: string; patch?: any; error?: string }[])
 
   const next: WorldSlice = {
     ...baseNext,
