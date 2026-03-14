@@ -1,6 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { WorldSlice, PersonalAgentState } from '@/domain/world'
-import { createAnthropicClient, getModel } from './anthropic'
+import { createAnthropicClient, getModel, streamText } from './anthropic'
 
 type ObservationOptions = {
   world: WorldSlice
@@ -78,9 +77,9 @@ Generate a natural language observation summary covering:
 
 Write in first person from the agent's perspective. Be concise but comprehensive (3-5 sentences).`
 
-  const response = await client.messages.create({
+  const responseText = await streamText(client, {
     model,
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [
       {
         role: 'user',
@@ -88,34 +87,6 @@ Write in first person from the agent's perspective. Be concise but comprehensive
       },
     ],
   })
-
-  // Handle both standard and streaming responses
-  let responseText = ''
-  
-  // Parse SSE format or standard format
-  const responseAny = response as any
-  if (typeof responseAny === 'string') {
-    // Parse SSE format
-    const lines = responseAny.split('\n')
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.substring(6))
-          if (data.type === 'content_block_delta' && data.delta?.text) {
-            responseText += data.delta.text
-          }
-        } catch (e) {
-          // Skip invalid JSON lines
-        }
-      }
-    }
-  } else if (responseAny.content && responseAny.content[0]) {
-    // Standard Anthropic format
-    const content = responseAny.content[0]
-    if (content.type === 'text') {
-      responseText = content.text
-    }
-  }
 
   if (!responseText) {
     throw new Error('No text content in response')

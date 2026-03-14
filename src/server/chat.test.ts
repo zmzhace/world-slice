@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { handleChatTurn } from './chat'
-import { registerPanguAgent } from './pangu'
+import { registerDirectorAgent } from './pangu'
 
 it('returns a reply and updates the world summary after a user message', async () => {
   const result = await handleChatTurn({ message: '我今天有点累。' })
@@ -10,8 +10,8 @@ it('returns a reply and updates the world summary after a user message', async (
   expect(result.world.tick).toBeGreaterThan(0)
 })
 
-it('uses the shared pangu registry when running ticks', async () => {
-  registerPanguAgent({
+it('uses the shared director registry when running ticks', async () => {
+  registerDirectorAgent({
     id: 'hot-2',
     role: 'macro',
     run: () => ({ events: [{ id: 'e2', kind: 'macro', summary: 'news' }] }),

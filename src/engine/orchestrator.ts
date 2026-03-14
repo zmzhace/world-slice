@@ -3,6 +3,7 @@ import { createNuwaService } from './nuwa-service'
 import { applyMemoryDecay } from './memory'
 import { updateVitalsAfterTick } from './vitals'
 import { applyPersonaDrift, generateDriftSignals } from './persona'
+import { selectActiveAgents, applyCircadianEffects, getWorldHour, generateDefaultSleepSchedule } from './circadian-rhythm'
 import { mapSearchResultsToSocialContext } from '@/server/search/mapper'
 import { executeNpcAgents } from './npc-agent-executor'
 import type { AgentAction } from '@/domain/actions'
@@ -11,7 +12,6 @@ import type { SearchSignal } from '@/domain/search'
 import { arbitratePatches } from './arbiter'
 import { judgeLife, decideReincarnation, createHoutuConfig } from '@/domain/houtu'
 import { createPersonalAgent } from '@/domain/agents'
-import { createTimeEngine } from './time-engine'
 import { createRecommendationSystem } from './recommendation-system'
 import { createKnowledgeGraph, KnowledgeGraph } from './knowledge-graph'
 import { NarrativeRecognizer } from './narrative-recognizer'
@@ -31,8 +31,8 @@ import { AttentionMechanism } from './attention-mechanism'
 
 type OrchestratorOptions = {
   search?: () => Promise<SearchSignal[]>
-  nuwa?: { trigger: 'event'; seed: string; environment: { region: string; social_state: string } }
-  panguRegistry?: { runAll: (world: WorldSlice) => Promise<{ agentId: string; patch?: unknown; error?: string }[]> }
+  creator?: { trigger: 'event'; seed: string; environment: { region: string; social_state: string } }
+  directorRegistry?: { runAll: (world: WorldSlice) => Promise<{ agentId: string; patch?: unknown; error?: string }[]> }
 }
 
 // 全局系统实例（跨 tick 保持状态，从 world.systems 水合）
@@ -116,6 +116,77 @@ function exportSystemsState(knowledgeGraph: KnowledgeGraph): SystemsState {
   }
 }
 
+/**
+ * 世界状态演进 - 根据本轮事件更新 social_context
+ * 纯粹从事件内容驱动，不做硬编码阈值判断
+ */
+function evolveWorldState(world: WorldSlice, patch: ReturnType<typeof arbitratePatches>): WorldSlice {
+  const updatedSocialContext = { ...world.social_context }
+
+  // 1. 所有有 summary 的事件都是潜在的宏观事件
+  const newEventSummaries = patch.events
+    .filter(e => e.summary && e.summary.length > 5)
+    .map(e => e.summary)
+
+  if (newEventSummaries.length > 0) {
+    const existingSet = new Set(updatedSocialContext.macro_events)
+    for (const evt of newEventSummaries) {
+      if (!existingSet.has(evt)) {
+        updatedSocialContext.macro_events.push(evt)
+      }
+    }
+    // 保留最近 20 条
+    if (updatedSocialContext.macro_events.length > 20) {
+      updatedSocialContext.macro_events = updatedSocialContext.macro_events.slice(-20)
+    }
+  }
+
+  // 2. 从叙事模式更新 narratives
+  const activeNarrativeDescriptions = world.narratives.patterns
+    .filter(p => p.status === 'developing' || p.status === 'climax')
+    .slice(0, 5)
+    .map(p => {
+      const participants = world.agents.npcs
+        .filter(a => p.participants.includes(a.genetics.seed))
+        .map(a => a.identity.name)
+      return `${p.type}: ${participants.join(' & ')} — ${p.type} (${p.status === 'climax' ? 'climax' : 'developing'})`
+    })
+
+  if (activeNarrativeDescriptions.length > 0) {
+    updatedSocialContext.narratives = activeNarrativeDescriptions
+  }
+
+  // 3. 从 NPC 的情绪状态生成环境氛围（不做阈值判断，直接统计主流情绪）
+  const emotionCounts = new Map<string, number>()
+  for (const npc of world.agents.npcs) {
+    if (npc.emotion.label && npc.emotion.label !== 'neutral') {
+      emotionCounts.set(npc.emotion.label, (emotionCounts.get(npc.emotion.label) || 0) + 1)
+    }
+  }
+  const topEmotions = [...emotionCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([label]) => `atmosphere of ${label}`)
+
+  if (topEmotions.length > 0) {
+    updatedSocialContext.ambient_noise = [
+      ...topEmotions,
+      ...updatedSocialContext.ambient_noise.slice(0, 2),
+    ].slice(0, 4)
+  }
+
+  // 4. 清理过旧的事件（保留最近 200 条）
+  const trimmedEvents = world.events.length > 200
+    ? world.events.slice(-200)
+    : world.events
+
+  return {
+    ...world,
+    social_context: updatedSocialContext,
+    events: trimmedEvents,
+  }
+}
+
 export async function runWorldTick(world: WorldSlice, options: OrchestratorOptions = {}): Promise<WorldSlice> {
   const bus = createHookBus()
   await bus.emit('before_tick', { world })
@@ -124,7 +195,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const timestamp = new Date(Date.parse(world.time) + 1000).toISOString()
 
   // 初始化新系统
-  const timeEngine = createTimeEngine()
   const recSystem = createRecommendationSystem()
   const narrativeInfluence = new NarrativeInfluenceSystem()
   const collectiveMemory = new CollectiveMemorySystem()
@@ -149,13 +219,31 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const memeSystem = globalMemeSystem!
   const attentionMechanism = globalAttentionMechanism!
 
-  // 时间引擎：初始化所有 agents 的时间模式（如果还没有）
-  const npcsWithTimePatterns = timeEngine.initializeTimePatterns(world.agents.npcs)
+  // All alive NPCs participate in state updates, but only a subset makes LLM decisions
+  const aliveNpcs = world.agents.npcs.filter(a => a.life_status === 'alive')
 
-  // 时间引擎：获取当前时间应该激活的 agents
-  const activeNpcs = timeEngine.getActiveAgents(npcsWithTimePatterns, world)
-  
-  console.log(`[Orchestrator] Tick ${nextTick}: ${activeNpcs.length}/${npcsWithTimePatterns.length} agents active`)
+  // Ensure all agents have sleep schedules (backfill for agents created before circadian system)
+  const npcsWithSchedules = aliveNpcs.map(a => {
+    if (!a.sleep_schedule) {
+      return { ...a, sleep_schedule: generateDefaultSleepSchedule(a) }
+    }
+    return a
+  })
+
+  // Calculate tension from recent conflicts + high-stress agents
+  const recentConflicts = world.events.slice(-20).filter(e =>
+    (e.payload as Record<string, unknown> | undefined)?.conflict === true
+  ).length
+  const conflictRatio = world.events.length > 0 ? recentConflicts / Math.min(20, world.events.length) : 0
+  const highStressRatio = npcsWithSchedules.filter(a => a.vitals.stress > 0.6).length / Math.max(1, npcsWithSchedules.length)
+  const tension = Math.min(1, conflictRatio + highStressRatio * 0.5)
+
+  // Circadian-aware agent selection
+  const activeNpcsForDecision = selectActiveAgents(npcsWithSchedules, world, tension)
+  const activeSeeds = new Set(activeNpcsForDecision.map(a => a.genetics.seed))
+
+  const worldHour = getWorldHour(world)
+  console.log(`[Orchestrator] Tick ${nextTick} (hour ${worldHour}): ${activeNpcsForDecision.length}/${npcsWithSchedules.length} agents active (tension: ${(tension * 100).toFixed(0)}%)`)
 
   // Parallel update for personal agent
   const updatedMemoryShort = applyMemoryDecay(world.agents.personal.memory_short)
@@ -163,19 +251,15 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const updatedVitals = updateVitalsAfterTick(world.agents.personal.vitals)
   const updatedPersona = applyPersonaDrift(world.agents.personal.persona, generateDriftSignals(world.agents.personal.action_history))
 
-  // Parallel update for all NPC agents (只更新激活的 agents)
+  // Parallel update for all NPC agents (with circadian effects)
   const updatedNpcs = await Promise.all(
-    npcsWithTimePatterns.map(async (npc) => {
-      // 如果 agent 未激活，直接返回
-      if (!activeNpcs.find(a => a.genetics.seed === npc.genetics.seed)) {
-        return npc
-      }
-      
+    npcsWithSchedules.map(async (npc) => {
+      const withCircadian = applyCircadianEffects(npc, worldHour)
       return {
-        ...npc,
+        ...withCircadian,
         memory_short: applyMemoryDecay(npc.memory_short),
         memory_long: applyMemoryDecay(npc.memory_long),
-        vitals: updateVitalsAfterTick(npc.vitals),
+        vitals: updateVitalsAfterTick(withCircadian.vitals),
         persona: applyPersonaDrift(npc.persona, generateDriftSignals(npc.action_history || [])),
       }
     })
@@ -193,7 +277,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
 
   const events = [...world.events]
 
-  if (options.nuwa) {
+  if (options.creator) {
     const nuwa = createNuwaService({
       emit: (event) => {
         events.push({
@@ -204,7 +288,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
         })
       },
     })
-    nuwa.createAgent(options.nuwa)
+    nuwa.createAgent(options.creator)
   }
 
   const event = {
@@ -235,21 +319,21 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     },
   }
 
-  if (!options.panguRegistry) {
+  if (!options.directorRegistry) {
     const earlyNext = { ...baseNext, systems: exportSystemsState(knowledgeGraph) }
     await bus.emit('after_tick', { world: earlyNext })
     return earlyNext
   }
 
-  // 并行执行 Pangu agents 和 NPC agents（只执行激活的 agents）
-  const [panguResults, npcResults] = await Promise.all([
-    options.panguRegistry.runAll(world),
-    executeNpcAgents({ ...world, agents: { ...world.agents, npcs: activeNpcs } }),
+  // 并行执行 Pangu agents 和 NPC agents
+  const [directorResults, npcResults] = await Promise.all([
+    options.directorRegistry.runAll(world),
+    executeNpcAgents({ ...world, agents: { ...world.agents, npcs: activeNpcsForDecision } }),
   ])
 
   // 合并所有 agent 的结果
   const allResults = [
-    ...panguResults,
+    ...directorResults,
     ...npcResults.map(r => ({ agentId: r.agentId, patch: r.patch })),
   ]
 
@@ -279,7 +363,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     ],
   }
 
-  // 后土系统 - 生死轮回判定
+  // Life cycle system - death and reincarnation
   const houtuConfig = createHoutuConfig()
   const houtuEvents: Array<{ id: string; type: string; timestamp: string; payload?: Record<string, unknown> }> = []
   
@@ -328,7 +412,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
       // 创建轮回后的新 agent
       const newAgent = createPersonalAgent(`${deadAgent.genetics.seed}-reborn-${next.tick}`)
       newAgent.life_status = 'alive'
-      newAgent.identity.name = `${deadAgent.identity.name}·转世`
+      newAgent.identity.name = `${deadAgent.identity.name}${next.config?.reborn_suffix || ' Reborn'}`
       
       // 继承部分特质
       if (reincarnation.inherited_traits) {
@@ -342,7 +426,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
           // 将记忆转为模糊的长期记忆
           newAgent.memory_long = reincarnation.inherited_traits.memories.map((content, idx) => ({
             id: `inherited-${next.tick}-${idx}`,
-            content: `前世记忆：${content}`,
+            content: `${next.config?.past_life_prefix || 'Past life: '}${content}`,
             importance: 0.3,
             emotional_weight: 0.2,
             source: 'self' as const,
@@ -531,10 +615,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const graphStats = updatedKnowledgeGraph.getStats()
   console.log(`[KnowledgeGraph] Tick ${nextTick}: ${graphStats.totalNodes} nodes, ${graphStats.totalEdges} edges`)
 
-  // 时间引擎统计
-  const activityStats = timeEngine.getActivityStats(next)
-  console.log(`[TimeEngine] Activity: ${activityStats.active}/${activityStats.total} (${(activityStats.activityRate * 100).toFixed(1)}%)`)
-
   // ===== Phase 4-5: 高级机制系统 =====
   
   // 1. 声誉系统 - 更新社交网络和应用衰减
@@ -557,9 +637,10 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
         narrative_roles: {
           ...agent.narrative_roles,
           [`role-${primaryRole.type}`]: {
-            role: primaryRole.name === '领导者' ? 'protagonist' as const :
-                  primaryRole.name === '追随者' ? 'supporting' as const :
-                  primaryRole.name === '调解者' ? 'catalyst' as const :
+            // Map social role to narrative role based on identity_strength and agent traits
+            role: (agent.persona.agency > 0.7 && primaryRole.identity_strength > 0.5) ? 'protagonist' as const :
+                  (agent.persona.empathy > 0.7) ? 'catalyst' as const :
+                  (agent.persona.attachment > 0.6) ? 'supporting' as const :
                   'observer' as const,
             involvement: primaryRole.identity_strength,
             impact: primaryRole.identity_strength * 0.8,
@@ -711,6 +792,90 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
       npcs: npcsWithAttention
     },
     systems: exportSystemsState(updatedKnowledgeGraph),
+  }
+
+  // ===== Auto-spawn new agents when population drops =====
+  // 触发条件：NPC 死亡导致人数不足 / 每 20 tick 检查一次是否需要新势力
+  const aliveCount = next.agents.npcs.filter(a => a.life_status === 'alive').length
+  const shouldSpawn = (
+    // 有人死了，人数低于初始的 70%
+    (aliveCount < 10 && nextTick > 5) ||
+    // 每 20 tick 有 30% 概率引入新角色（模拟外来者/新势力）
+    (nextTick % 20 === 0 && Math.random() < 0.3 && aliveCount < 25)
+  )
+
+  if (shouldSpawn) {
+    try {
+      const spawnCount = aliveCount < 5 ? 3 : aliveCount < 10 ? 2 : 1
+      console.log(`[AutoSpawn] Tick ${nextTick}: spawning ${spawnCount} new agents (alive: ${aliveCount})`)
+
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+      const existingNames = next.agents.npcs
+        .filter(a => a.life_status === 'alive')
+        .map(a => `${a.identity.name} (${a.occupation || 'unknown'})`)
+        .join(', ')
+      const recentEvents = next.social_context.macro_events.slice(-5).join('; ')
+      const deadNames = next.agents.npcs
+        .filter(a => a.life_status === 'dead')
+        .map(a => `${a.identity.name} (${a.cause_of_death || 'deceased'})`)
+        .join(', ')
+
+      const res = await fetch(`${baseUrl}/api/agents/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `${next.environment.description}\n\nExisting characters: ${existingNames}\n${deadNames ? `Deceased: ${deadNames}` : ''}\nRecent major events: ${recentEvents || 'The world has just begun'}\n\nGenerate ${spawnCount} new character(s). **Important: their appearance must have a narrative reason**, for example:\n- An old friend/enemy/descendant of a deceased character, arriving after hearing the news\n- An outsider drawn by recent events\n- Someone who has been hiding nearby and is forced to emerge due to changing circumstances\n- A figure from an existing character's past with unfinished business\n\nTheir backstory must explain "why they appear now" and they must have relationships with at least 2 existing characters. Do not create characters out of thin air.\n\n**Language: Generate all content in the same language as the world description above.**`,
+          count: spawnCount,
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const newAgents = data.agents || []
+        if (newAgents.length > 0) {
+          next = {
+            ...next,
+            agents: {
+              ...next.agents,
+              npcs: [...next.agents.npcs, ...newAgents],
+            },
+            events: [
+              ...next.events,
+              ...newAgents.map((a: PersonalAgentState) => ({
+                id: `spawn-${nextTick}-${a.genetics.seed}`,
+                type: 'agent_spawn',
+                timestamp,
+                payload: {
+                  agent_name: a.identity.name,
+                  summary: `${a.identity.name} (${a.occupation || 'unknown'}) has arrived in this world`,
+                },
+              })),
+            ],
+          }
+          console.log(`[AutoSpawn] Created: ${newAgents.map((a: PersonalAgentState) => a.identity.name).join(', ')}`)
+        }
+      }
+    } catch (error) {
+      console.warn('[AutoSpawn] Failed:', (error as Error).message)
+    }
+  }
+
+  // ===== 世界状态演进 - 让事件反馈到世界 =====
+  next = evolveWorldState(next, patch)
+
+  // ===== Tick 总结 — 收集所有 agent 本轮行为描述 =====
+  const tickBehaviors = npcResults
+    .map(r => {
+      const agent = next.agents.npcs.find(a => a.genetics.seed === r.agentId)
+      return agent?.last_action_description
+    })
+    .filter(Boolean)
+
+  if (tickBehaviors.length > 0) {
+    next = {
+      ...next,
+      tick_summary: tickBehaviors.join('\n'),
+    }
   }
 
   await bus.emit('after_tick', { world: next })

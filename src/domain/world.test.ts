@@ -6,8 +6,8 @@ describe('createInitialWorldSlice', () => {
     const world = createInitialWorldSlice()
 
     expect(world.tick).toBe(0)
-    expect(world.agents.pangu.kind).toBe('world')
-    expect(world.agents.nuwa.kind).toBe('persona')
+    expect(world.agents.director.kind).toBe('world')
+    expect(world.agents.creator.kind).toBe('persona')
     expect(world.agents.personal.kind).toBe('personal')
     expect(world.agents.social.kind).toBe('social')
     expect(world.events).toEqual([])

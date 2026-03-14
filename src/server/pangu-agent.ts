@@ -3,11 +3,11 @@ import type { WorldSlice } from '@/domain/world'
 import { generateStorylineEvent } from './llm/pangu-director'
 
 /**
- * 盘古世界驱动 Agent
- * 负责观察世界状态，生成推动故事发展的事件
+ * Story Director Agent
+ * Observes world state and generates events to drive the narrative forward
  */
 export const panguDirectorAgent: PanguAgent = {
-  id: 'pangu-director',
+  id: 'story-director',
   role: 'macro',
   run: async (world: unknown) => {
     const worldSlice = world as WorldSlice
@@ -18,17 +18,17 @@ export const panguDirectorAgent: PanguAgent = {
         timeDelta: 0,
         events: [],
         rulesDelta: [],
-        notes: ['Pangu director skipped this tick'],
+        notes: ['Story director skipped this tick'],
         meta: {},
       }
     }
     
-    console.log(`[Pangu Director] Running at tick ${worldSlice.tick}`)
+    console.log(`[StoryDirector] Running at tick ${worldSlice.tick}`)
     
     // 生成故事线事件
     const patch = await generateStorylineEvent(worldSlice)
     
-    console.log(`[Pangu Director] Generated event:`, patch.events?.[0]?.summary || 'none')
+    console.log(`[StoryDirector] Generated event:`, patch.events?.[0]?.summary || 'none')
     
     return patch
   },

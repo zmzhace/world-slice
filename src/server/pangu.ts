@@ -4,11 +4,11 @@ import { panguDirectorAgent } from './pangu-agent'
 
 const registry = createAgentRegistry()
 
-// 注册盘古导演 agent
+// Register story director agent
 registry.register(panguDirectorAgent)
 
-export const registerPanguAgent = (agent: PanguAgent) => {
+export const registerDirectorAgent = (agent: PanguAgent) => {
   registry.register(agent)
 }
 
-export const getPanguRegistry = () => registry
+export const getDirectorRegistry = () => registry

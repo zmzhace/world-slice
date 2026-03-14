@@ -99,9 +99,9 @@ export default function NewWorldPage() {
                   <div className="flex-1">
                     <h3 className="font-semibold text-blue-900 mb-1">正在创建世界...</h3>
                     <div className="space-y-1 text-sm text-blue-700">
-                      <p>🌍 盘古创世 - 生成初始世界状态</p>
-                      <p>👥 女娲造人 - 创建个性化 agents</p>
-                      <p>✨ 准备涌现式叙事系统</p>
+                      <p>🌍 Generating world state...</p>
+                      <p>👥 Creating personalized agents...</p>
+                      <p>✨ Preparing emergent narrative system...</p>
                     </div>
                   </div>
                 </div>

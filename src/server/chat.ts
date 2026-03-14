@@ -1,7 +1,7 @@
 import { createInitialWorldSlice } from '@/domain/world'
 import { runWorldTick } from '@/engine/orchestrator'
 import { loadWorldSlice, saveWorldSlice } from './persistence'
-import { getPanguRegistry } from './pangu'
+import { getDirectorRegistry } from './pangu'
 
 type ChatTurnInput = {
   message: string
@@ -30,7 +30,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<ChatTurnResu
         },
       ],
     },
-    { panguRegistry: getPanguRegistry() },
+    { directorRegistry: getDirectorRegistry() },
   )
 
   await saveWorldSlice(next)

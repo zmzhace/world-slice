@@ -24,6 +24,24 @@ export function getModel() {
   return process.env.WORLD_SLICE_MODEL || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
 }
 
+/**
+ * 流式调用 LLM 并收集完整文本响应。
+ * 所有 LLM 调用都必须走流式，否则超过 10 分钟会被 SDK 拒绝。
+ */
+export async function streamText(
+  client: Anthropic,
+  params: { model: string; max_tokens: number; messages: Anthropic.MessageCreateParams['messages'] }
+): Promise<string> {
+  const stream = client.messages.stream({
+    model: params.model,
+    max_tokens: params.max_tokens,
+    messages: params.messages,
+  })
+  const response = await stream.finalMessage()
+  const textBlock = response.content.find((block) => block.type === 'text')
+  return textBlock && 'text' in textBlock ? textBlock.text : ''
+}
+
 // 保留原有的 summarizeObservation 功能
 const client = createAnthropicClient()
 
@@ -33,9 +51,9 @@ type ObservationInput = {
 }
 
 export async function summarizeObservation(input: ObservationInput): Promise<string> {
-  const response = await client.messages.create({
+  return streamText(client, {
     model: getModel(),
-    max_tokens: 512,
+    max_tokens: 2048,
     messages: [
       {
         role: 'user',
@@ -43,7 +61,4 @@ export async function summarizeObservation(input: ObservationInput): Promise<str
       },
     ],
   })
-
-  const textBlock = response.content.find((block) => block.type === 'text')
-  return textBlock && 'text' in textBlock ? textBlock.text : ''
 }

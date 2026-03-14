@@ -179,7 +179,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
       {/* 空状态 */}
       {aliveAgents.length === 0 && deadAgents.length === 0 && (
         <div className="py-8 text-center text-sm text-slate-500">
-          尚无人物，请先使用女娲造人
+          No agents yet. Please initialize the world first.
         </div>
       )}
     </div>

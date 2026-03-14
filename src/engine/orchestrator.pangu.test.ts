@@ -13,7 +13,7 @@ it('runs registered agents and applies arbiter patch', async () => {
   })
 
   const world = createInitialWorldSlice()
-  const next = await runWorldTick(world, { panguRegistry: registry })
+  const next = await runWorldTick(world, { directorRegistry: registry })
 
   expect(next.tick).toBeGreaterThan(world.tick)
   expect(next.events.find((e) => e.id === 'e1')).toBeDefined()

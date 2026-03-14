@@ -28,7 +28,7 @@ export function AgentObserverPanel({ world }: AgentObserverPanelProps) {
         <h2 className="mb-4 text-xl font-semibold">Agent 观察台</h2>
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center">
           <p className="text-sm text-yellow-800">
-            暂无 agents，请先初始化世界或使用女娲造人
+            No agents yet. Please initialize the world or create agents first.
           </p>
         </div>
       </div>
@@ -55,10 +55,7 @@ export function AgentObserverPanel({ world }: AgentObserverPanelProps) {
         >
           {world.agents.npcs.map((agent) => (
             <option key={agent.genetics.seed} value={agent.genetics.seed}>
-              {agent.identity.name} ({agent.occupation || '未知职业'}) - {
-                agent.role === 'protagonist' ? '主角' :
-                agent.role === 'supporting' ? '配角' : 'NPC'
-              }
+              {agent.identity.name} ({agent.occupation || '未知职业'})
             </option>
           ))}
         </select>
@@ -78,13 +75,8 @@ export function AgentObserverPanel({ world }: AgentObserverPanelProps) {
               </div>
               <div>
                 <span className="font-medium text-slate-600">角色：</span>
-                <span className={`rounded px-2 py-0.5 text-xs ${
-                  selectedAgent.role === 'protagonist' ? 'bg-yellow-100 text-yellow-800' :
-                  selectedAgent.role === 'supporting' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {selectedAgent.role === 'protagonist' ? '主角' :
-                   selectedAgent.role === 'supporting' ? '配角' : 'NPC'}
+                <span className="rounded px-2 py-0.5 text-xs bg-gray-100 text-gray-800">
+                  NPC
                 </span>
               </div>
               <div>

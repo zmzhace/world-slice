@@ -53,7 +53,7 @@ export function AgentGeneratorPanel({ worldId, world, onWorldUpdate }: AgentGene
         events: [
           ...world.events,
           {
-            id: `nuwa-${world.tick}-${Date.now()}`,
+            id: `creator-${world.tick}-${Date.now()}`,
             type: 'agents_created',
             timestamp: new Date().toISOString(),
             payload: {
@@ -85,9 +85,9 @@ export function AgentGeneratorPanel({ worldId, world, onWorldUpdate }: AgentGene
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">女娲造人</h2>
+      <h2 className="text-xl font-semibold">Agent Creator</h2>
       <p className="text-sm text-slate-600">
-        女娲使用 LLM 创造个性化的 agents。世界初始化时会自动创造 5-10 个 agents，故事将从他们的自由互动中自然涌现。你也可以手动添加更多 agents。
+        Create personalized agents via LLM. During world initialization, agents are auto-generated. You can also manually add more agents.
       </p>
 
       <div className="rounded-lg border bg-blue-50 p-3 text-sm">

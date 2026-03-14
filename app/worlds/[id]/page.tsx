@@ -63,12 +63,12 @@ export default function WorldDetailPage() {
     setAdvancing(true)
     try {
       console.log('Advancing time...')
-      // 创建一个简单的 panguRegistry 来执行 NPC agents
-      const panguRegistry = {
-        runAll: async () => [] // 返回空数组，让 NPC agents 自己执行
+      // Create a simple directorRegistry to execute NPC agents
+      const directorRegistry = {
+        runAll: async () => [] // Return empty array, let NPC agents execute themselves
       }
-      
-      const nextWorld = await runWorldTick(world, { panguRegistry })
+
+      const nextWorld = await runWorldTick(world, { directorRegistry })
       
       // Save to localStorage
       localStorage.setItem(`world_${worldId}`, JSON.stringify(nextWorld))
@@ -214,6 +214,20 @@ export default function WorldDetailPage() {
         </div>
       </div>
 
+      {/* Tick 总结 — 本轮发生了什么 */}
+      {world.tick_summary && (
+        <div className="mx-auto max-w-7xl px-8 pt-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-sm font-semibold text-amber-800">Tick {world.tick} 纪事</span>
+            </div>
+            <div className="space-y-1 text-sm text-amber-900 leading-relaxed whitespace-pre-line">
+              {world.tick_summary}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 主内容区 */}
       <div className="mx-auto max-w-7xl p-8">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -249,7 +263,7 @@ export default function WorldDetailPage() {
               }`}
               onClick={() => setActiveTab('agents')}
             >
-              女娲造人
+              Create Agents
             </button>
             <button
               className={`px-4 py-2 text-sm font-medium ${

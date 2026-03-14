@@ -173,10 +173,10 @@ export class AgentDecisionMaker {
     // 2. 基于信念评分
     score += this.scoreByCoreBeliefs(agent, action)
     
-    // 3. 基于职业和专长评分（女娲字段）
+    // 3. Score by occupation and expertise
     score += this.scoreByOccupationAndExpertise(agent, action)
     
-    // 4. 基于做事方式评分（女娲字段）
+    // 4. Score by approach
     score += this.scoreByApproach(agent, action)
     
     // 5. 基于当前状态评分
@@ -267,7 +267,7 @@ export class AgentDecisionMaker {
   }
   
   /**
-   * 基于职业和专长评分（女娲字段）
+   * Score by occupation and expertise
    */
   private scoreByOccupationAndExpertise(agent: PersonalAgentState, action: AgentAction): number {
     let score = 0
@@ -337,7 +337,7 @@ export class AgentDecisionMaker {
   }
   
   /**
-   * 基于做事方式评分（女娲字段）
+   * Score by approach style
    */
   private scoreByApproach(agent: PersonalAgentState, action: AgentAction): number {
     if (!agent.approach) return 0

@@ -1,7 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { WorldSlice, SocialContext } from '@/domain/world'
 import { createInitialWorldSlice } from '@/domain/world'
-import { createAnthropicClient, getModel } from './anthropic'
+import { createAnthropicClient, getModel, streamText } from './anthropic'
 
 type GenerateWorldOptions = {
   worldPrompt: string
@@ -17,6 +16,7 @@ type WorldSpec = {
   social_context: SocialContext
   initial_time: string
   narrative_seed: string
+  language?: string
 }
 
 export async function generateInitialWorld(
@@ -28,42 +28,44 @@ export async function generateInitialWorld(
 
   const model = getModel()
 
-  console.log('Pangu: Using model:', model)
-  console.log('Pangu: Base URL:', client.baseURL)
+  console.log('WorldGenerator: Using model:', model)
+  console.log('WorldGenerator: Base URL:', client.baseURL)
 
-  const systemPrompt = `你是盘古（Pangu），世界创造系统。根据用户的描述生成一个初始世界状态。
+  const systemPrompt = `You are a world creation system. Based on the user's description, generate an initial world state.
 
-用户描述: "${worldPrompt}"
+User description: "${worldPrompt}"
 
-请生成以下内容（JSON格式）：
+Generate the following content in JSON format:
 {
   "environment": {
-    "description": "环境的整体描述",
-    "region": "地理区域",
-    "climate": "气候特征",
-    "terrain": "地形特征"
+    "description": "Overall description of the environment",
+    "region": "Geographic region",
+    "climate": "Climate characteristics",
+    "terrain": "Terrain features"
   },
   "social_context": {
-    "macro_events": ["重大历史事件1", "重大历史事件2"],
-    "narratives": ["主流叙事1", "主流叙事2"],
-    "pressures": ["社会压力1", "社会压力2"],
-    "institutions": ["主要机构1", "主要机构2"],
-    "ambient_noise": ["环境氛围1", "环境氛围2"]
+    "macro_events": ["Major historical event 1", "Major historical event 2"],
+    "narratives": ["Dominant narrative 1", "Dominant narrative 2"],
+    "pressures": ["Social pressure 1", "Social pressure 2"],
+    "institutions": ["Major institution 1", "Major institution 2"],
+    "ambient_noise": ["Ambient atmosphere 1", "Ambient atmosphere 2"]
   },
-  "initial_time": "世界的起始时间描述",
-  "narrative_seed": "世界的核心叙事种子，一句话概括这个世界的本质"
+  "initial_time": "Description of the world's starting time",
+  "narrative_seed": "One sentence capturing the essence of this world",
+  "language": "The primary language for this world's content (e.g. 'zh', 'en', 'ja')"
 }
 
-要求：
-1. 基于用户描述创造一个连贯、有深度的世界
-2. 社会背景要反映世界的历史和文化
-3. 环境描述要具体、生动
-4. 所有内容用中文`
+Requirements:
+1. Create a coherent, deep world based on the user's description
+2. Social context should reflect the world's history and culture
+3. Environment description should be specific and vivid
+4. Detect the language of the user's description and generate all content in that same language
+5. Return the detected language code in the "language" field`
 
   try {
-    const response = await client.messages.create({
+    const responseText = await streamText(client, {
       model,
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [
         {
           role: 'user',
@@ -72,44 +74,13 @@ export async function generateInitialWorld(
       ],
     })
 
-    console.log('Pangu: Raw response type:', typeof response)
-
-    let responseText = ''
-    
-    // Handle SSE streaming format (when response is a string)
-    if (typeof response === 'string') {
-      console.log('Pangu: Parsing SSE format')
-      const lines = (response as string).split('\n')
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.substring(6))
-            if (data.type === 'content_block_delta' && data.delta?.text) {
-              responseText += data.delta.text
-            }
-          } catch (e) {
-            // Skip invalid JSON lines
-          }
-        }
-      }
-    } 
-    // Handle standard Anthropic format
-    else if (response.content && response.content.length > 0) {
-      console.log('Pangu: Parsing standard format')
-      for (const block of response.content) {
-        if (block.type === 'text') {
-          responseText += block.text
-        }
-      }
-    } else {
-      throw new Error('Empty response from Anthropic API')
-    }
+    console.log('WorldGenerator: Raw response received')
 
     if (!responseText) {
       throw new Error('No text content in response')
     }
 
-    console.log('Pangu response text:', responseText)
+    console.log('WorldGenerator response text:', responseText)
 
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/)
@@ -119,11 +90,18 @@ export async function generateInitialWorld(
 
     const spec: WorldSpec = JSON.parse(jsonMatch[0])
 
+    const detectedLanguage = spec.language || 'en'
+
     // Create initial world with generated data
     const world = createInitialWorldSlice()
-    
+
     return {
       ...world,
+      config: {
+        language: detectedLanguage,
+        reborn_suffix: detectedLanguage === 'zh' ? '·转世' : ' Reborn',
+        past_life_prefix: detectedLanguage === 'zh' ? '前世记忆：' : 'Past life: ',
+      },
       environment: {
         description: spec.environment.description,
       },
@@ -145,7 +123,7 @@ export async function generateInitialWorld(
       ],
     }
   } catch (error) {
-    console.error('Pangu error:', error)
+    console.error('WorldGenerator error:', error)
     throw error
   }
 }
