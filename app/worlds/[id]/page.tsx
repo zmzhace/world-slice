@@ -6,7 +6,7 @@ import { ChatShell } from '@/components/chat/chat-shell'
 import { PanelShell } from '@/components/panel/panel-shell'
 import { AgentGeneratorPanel } from '@/components/panel/agent-generator-panel'
 import { EventsPanel } from '@/components/panel/events-panel'
-import { SimingPanel } from '@/components/panel/siming-panel'
+import { NarrativePanel } from '@/components/panel/narrative-panel'
 import { HoutuPanel } from '@/components/panel/houtu-panel'
 import { AgentObserverPanel } from '@/components/panel/agent-observer-panel'
 import { SystemStatsPanel } from '@/components/panel/system-stats-panel'
@@ -20,7 +20,7 @@ export default function WorldDetailPage() {
   
   const worldRecord = getWorld(worldId)
   const [world, setWorld] = React.useState<ReturnType<typeof createInitialWorldSlice> | null>(null)
-  const [activeTab, setActiveTab] = React.useState<'world' | 'agents' | 'plots' | 'houtu' | 'observer' | 'events' | 'stats'>('world')
+  const [activeTab, setActiveTab] = React.useState<'world' | 'agents' | 'narratives' | 'houtu' | 'observer' | 'events' | 'stats'>('world')
   const [advancing, setAdvancing] = React.useState(false)
   const [autoAdvancing, setAutoAdvancing] = React.useState(false)
   const [autoAdvanceTicks, setAutoAdvanceTicks] = React.useState<number>(10) // 推进多少个 tick
@@ -209,13 +209,13 @@ export default function WorldDetailPage() {
             </button>
             <button
               className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'plots'
+                activeTab === 'narratives'
                   ? 'border-b-2 border-slate-900 text-slate-900'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              onClick={() => setActiveTab('plots')}
+              onClick={() => setActiveTab('narratives')}
             >
-              司命编织
+              涌现叙事
             </button>
             <button
               className={`px-4 py-2 text-sm font-medium ${
@@ -259,12 +259,8 @@ export default function WorldDetailPage() {
               onWorldUpdate={setWorld}
             />
           )}
-          {activeTab === 'plots' && (
-            <SimingPanel
-              worldId={worldId}
-              world={world}
-              onWorldUpdate={setWorld}
-            />
+          {activeTab === 'narratives' && (
+            <NarrativePanel world={world} />
           )}
           {activeTab === 'houtu' && <HoutuPanel world={world} />}
           {activeTab === 'events' && <EventsPanel world={world} />}

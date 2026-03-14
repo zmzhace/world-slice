@@ -11,10 +11,12 @@ import type { SearchSignal } from '@/domain/search'
 import { arbitratePatches } from './arbiter'
 import { judgeLife, decideReincarnation, createHoutuConfig } from '@/domain/houtu'
 import { createPersonalAgent } from '@/domain/agents'
-import { checkPlotTriggers, advancePlotStages, applyPlotInfluenceToAgents } from './plot-executor'
 import { createTimeEngine } from './time-engine'
 import { createRecommendationSystem } from './recommendation-system'
 import { createKnowledgeGraph } from './knowledge-graph'
+import { NarrativeRecognizer } from './narrative-recognizer'
+import { StoryArcDetector } from './story-arc-detector'
+import { NarrativeSummarizer } from './narrative-summarizer'
 
 type OrchestratorOptions = {
   search?: () => Promise<SearchSignal[]>
@@ -66,9 +68,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     })
   )
 
-  // 应用剧情影响到 agents（在执行行动之前）
-  const npcsWithPlotInfluence = applyPlotInfluenceToAgents(updatedNpcs, world)
-
   const searchResults = options.search ? await options.search() : []
   const mappedContext = searchResults.length
     ? mapSearchResultsToSocialContext(searchResults)
@@ -119,7 +118,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
         persona: updatedPersona,
         action_history: [...world.agents.personal.action_history, { type: action.type, timestamp }],
       },
-      npcs: npcsWithPlotInfluence,
+      npcs: updatedNpcs,
     },
   }
 
@@ -198,7 +197,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
           agent_name: npc.identity.name,
           cause: judgment.reason,
           death_type: judgment.death_type,
-          role: npc.role,
         },
       })
     } else {
@@ -215,7 +213,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     if (reincarnation.should_reincarnate) {
       // 创建轮回后的新 agent
       const newAgent = createPersonalAgent(`${deadAgent.genetics.seed}-reborn-${next.tick}`)
-      newAgent.role = reincarnation.new_role || 'npc'
       newAgent.life_status = 'alive'
       newAgent.identity.name = `${deadAgent.identity.name}·转世`
       
@@ -253,8 +250,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
           new_seed: newAgent.genetics.seed,
           old_name: deadAgent.identity.name,
           new_name: newAgent.identity.name,
-          old_role: deadAgent.role,
-          new_role: newAgent.role,
         },
       })
     }
@@ -282,91 +277,86 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     events: [...next.events, ...houtuEvents],
   }
 
-  // 剧情系统 - 检查触发、完成、失败
-  const { triggeredPlots, completedPlots, failedPlots } = checkPlotTriggers(next)
+  // 涌现式叙事系统 - 识别叙事模式
+  const narrativeRecognizer = new NarrativeRecognizer()
   
-  // 更新剧情状态
-  const updatedPlots = next.plots.map(plot => {
-    if (triggeredPlots.find(p => p.id === plot.id)) {
-      return { ...plot, status: 'active' as const }
-    }
-    if (completedPlots.find(p => p.id === plot.id)) {
-      return { ...plot, status: 'completed' as const }
-    }
-    if (failedPlots.find(p => p.id === plot.id)) {
-      return { ...plot, status: 'failed' as const }
-    }
-    return plot
-  })
+  // 1. 识别新的叙事模式（从最近 100 个事件）
+  const recentEvents = next.events.slice(-100)
+  const newPatterns = await narrativeRecognizer.recognizePatterns(recentEvents, next)
   
-  // 推进剧情阶段
-  const { updatedPlots: plotsWithAdvancedStages, stageEvents } = advancePlotStages({
-    ...next,
-    plots: updatedPlots,
-  })
+  // 2. 更新现有叙事模式（追踪发展）
+  const recentEventsForTracking = next.events.slice(-10)
+  const updatedPatterns = await Promise.all(
+    next.narratives.patterns.map(pattern =>
+      narrativeRecognizer.trackNarrativeDevelopment(pattern, recentEventsForTracking, next)
+    )
+  )
   
-  // 合并剧情更新
-  const finalPlots = updatedPlots.map(plot => {
-    const advanced = plotsWithAdvancedStages.find(p => p.id === plot.id)
-    return advanced || plot
-  })
+  // 3. 合并新旧模式（去重）
+  const allPatterns = [...updatedPatterns, ...newPatterns]
+  const uniquePatterns = allPatterns.filter((pattern, index, self) =>
+    index === self.findIndex(p => p.id === pattern.id)
+  )
   
-  // 生成剧情事件
-  const plotEvents: typeof next.events = []
+  // 4. 检测故事弧
+  const storyArcDetector = new StoryArcDetector()
+  const detectedArcs = await storyArcDetector.detectArcs(uniquePatterns)
   
-  for (const plot of triggeredPlots) {
-    plotEvents.push({
-      id: `plot-trigger-${next.tick}-${plot.id}`,
-      type: 'plot_triggered',
-      timestamp,
-      payload: {
-        plot_id: plot.id,
-        plot_title: plot.title,
-      },
+  // 5. 更新现有故事弧
+  const updatedArcs = await Promise.all(
+    next.narratives.arcs.map(async arc => {
+      // 找到相关的新模式
+      const relevantNewPatterns = uniquePatterns.filter(p =>
+        p.participants.some(participant =>
+          [...arc.protagonists, ...arc.antagonists, ...arc.supporting].includes(participant)
+        )
+      )
+      
+      if (relevantNewPatterns.length > 0) {
+        return await storyArcDetector.updateArc(arc, relevantNewPatterns)
+      }
+      return arc
     })
+  )
+  
+  // 6. 合并新旧故事弧
+  const allArcs = [...updatedArcs, ...detectedArcs]
+  const uniqueArcs = allArcs.filter((arc, index, self) =>
+    index === self.findIndex(a => a.id === arc.id)
+  )
+  
+  // 7. 生成叙事总结（每 10 个 tick）
+  let summaries = next.narratives.summaries
+  if (next.tick % 10 === 0 && uniquePatterns.length > 0) {
+    const summarizer = new NarrativeSummarizer()
+    const newSummary = await summarizer.summarize(uniquePatterns, next.events)
+    summaries = [...summaries, newSummary]
+    
+    console.log(`[NarrativeSummarizer] Generated summary: "${newSummary.title}"`)
   }
   
-  for (const plot of completedPlots) {
-    plotEvents.push({
-      id: `plot-complete-${next.tick}-${plot.id}`,
-      type: 'plot_completed',
-      timestamp,
-      payload: {
-        plot_id: plot.id,
-        plot_title: plot.title,
-      },
-    })
+  // 8. 更新统计信息
+  const narrativeStats = {
+    total_patterns: uniquePatterns.length,
+    active_patterns: uniquePatterns.filter(p => 
+      p.status === 'developing' || p.status === 'climax'
+    ).length,
+    concluded_patterns: uniquePatterns.filter(p => p.status === 'concluded').length,
+    total_arcs: uniqueArcs.length,
+    completed_arcs: uniqueArcs.filter(a => a.status === 'concluded').length
   }
   
-  for (const plot of failedPlots) {
-    plotEvents.push({
-      id: `plot-failed-${next.tick}-${plot.id}`,
-      type: 'plot_failed',
-      timestamp,
-      payload: {
-        plot_id: plot.id,
-        plot_title: plot.title,
-      },
-    })
-  }
+  console.log(`[NarrativeSystem] Tick ${nextTick}: ${narrativeStats.active_patterns} active patterns, ${narrativeStats.total_arcs} story arcs`)
   
-  for (const stageEvent of stageEvents) {
-    plotEvents.push({
-      id: `plot-stage-${next.tick}-${stageEvent.plotId}`,
-      type: 'plot_stage_completed',
-      timestamp,
-      payload: {
-        plot_id: stageEvent.plotId,
-        stage_name: stageEvent.stageName,
-      },
-    })
-  }
-  
-  // 最终更新
+  // 9. 更新世界的叙事系统
   next = {
     ...next,
-    plots: finalPlots,
-    events: [...next.events, ...plotEvents],
+    narratives: {
+      patterns: uniquePatterns,
+      arcs: uniqueArcs,
+      summaries,
+      stats: narrativeStats
+    }
   }
 
   // 知识图谱更新：重建图谱（每个 tick）

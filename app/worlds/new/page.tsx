@@ -20,7 +20,7 @@ export default function NewWorldPage() {
       const worldRecord = createWorld({ worldPrompt: prompt })
       console.log('World record created:', worldRecord)
 
-      // Call complete initialization: Pangu + Nuwa + Siming
+      // Call complete initialization: Pangu + Nuwa
       const response = await fetch('/api/worlds/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,7 +41,7 @@ export default function NewWorldPage() {
       // Save generated world to localStorage
       localStorage.setItem(`world_${worldRecord.id}`, JSON.stringify(data.world))
       
-      alert(`世界创建成功！\n- 女娲创造了 ${data.summary.agents_count} 个 agents\n- 司命编织了剧情：${data.summary.plot_title}`)
+      alert(`世界创建成功！\n- 女娲创造了 ${data.summary.agents_count} 个 agents`)
       
       router.push(`/worlds/${worldRecord.id}`)
     } catch (error) {

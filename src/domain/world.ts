@@ -1,4 +1,4 @@
-import type { PlotArc } from './siming'
+import type { NarrativeSystem } from './narrative'
 
 export type AgentKind = 'world' | 'persona' | 'personal' | 'social'
 
@@ -39,7 +39,6 @@ export type SocialContext = {
 
 export type PersonalAgentState = {
   kind: 'personal'
-  role: 'protagonist' | 'supporting' | 'npc'  // 主要人物、支线人物、NPC
   genetics: {
     seed: string
   }
@@ -79,6 +78,15 @@ export type PersonalAgentState = {
     typical_sleep_hour: number  // 通常睡觉时间（0-23）
     typical_wake_hour: number   // 通常起床时间（0-23）
   }
+  
+  // 涌现式叙事 - 动态角色识别
+  narrative_roles?: {
+    [narrativeId: string]: {
+      role: 'protagonist' | 'antagonist' | 'supporting' | 'observer' | 'catalyst'
+      involvement: number  // 参与度 [0-1]
+      impact: number       // 影响力 [0-1]
+    }
+  }
 }
 
 export type WorldSlice = {
@@ -96,7 +104,7 @@ export type WorldSlice = {
     social: { kind: 'social'; id: string }
     npcs: PersonalAgentState[]  // 女娲生成的NPC agents
   }
-  plots: PlotArc[]  // 司命编织的剧情
+  narratives: NarrativeSystem  // 涌现式叙事系统
   events: Array<{ id: string; type: string; timestamp: string; payload?: Record<string, unknown> }>
   relations: Record<string, number>
   active_hooks: string[]
@@ -120,7 +128,6 @@ export function createInitialWorldSlice(): WorldSlice {
       nuwa: { kind: 'persona', id: 'nuwa-1' },
       personal: {
         kind: 'personal',
-        role: 'protagonist',
         life_status: 'alive',
         genetics: { seed: 'default-user' },
         identity: { name: 'user' },
@@ -148,7 +155,18 @@ export function createInitialWorldSlice(): WorldSlice {
       social: { kind: 'social', id: 'social-1' },
       npcs: [],  // 女娲生成的NPC agents
     },
-    plots: [],  // 司命编织的剧情
+    narratives: {
+      patterns: [],
+      arcs: [],
+      summaries: [],
+      stats: {
+        total_patterns: 0,
+        active_patterns: 0,
+        concluded_patterns: 0,
+        total_arcs: 0,
+        completed_arcs: 0
+      }
+    },
     events: [],
     relations: {},
     active_hooks: [],
