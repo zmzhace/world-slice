@@ -8,6 +8,7 @@ import { AgentGeneratorPanel } from '@/components/panel/agent-generator-panel'
 import { EventsPanel } from '@/components/panel/events-panel'
 import { SimingPanel } from '@/components/panel/siming-panel'
 import { HoutuPanel } from '@/components/panel/houtu-panel'
+import { AgentObserverPanel } from '@/components/panel/agent-observer-panel'
 import { createInitialWorldSlice } from '@/domain/world'
 import { getWorld } from '@/store/worlds'
 import { runWorldTick } from '@/engine/orchestrator'
@@ -18,8 +19,10 @@ export default function WorldDetailPage() {
   
   const worldRecord = getWorld(worldId)
   const [world, setWorld] = React.useState<ReturnType<typeof createInitialWorldSlice> | null>(null)
-  const [activeTab, setActiveTab] = React.useState<'world' | 'agents' | 'plots' | 'houtu' | 'events'>('world')
+  const [activeTab, setActiveTab] = React.useState<'world' | 'agents' | 'plots' | 'houtu' | 'observer' | 'events'>('world')
   const [advancing, setAdvancing] = React.useState(false)
+  const [autoAdvancing, setAutoAdvancing] = React.useState(false)
+  const [autoAdvanceInterval, setAutoAdvanceInterval] = React.useState<number>(3) // 秒
 
   React.useEffect(() => {
     if (worldRecord) {
@@ -63,9 +66,25 @@ export default function WorldDetailPage() {
     } catch (error) {
       console.error('Failed to advance time:', error)
       alert('推进时间失败: ' + (error as Error).message)
+      setAutoAdvancing(false) // 出错时停止自动推进
     } finally {
       setAdvancing(false)
     }
+  }
+
+  // 自动推进效果
+  React.useEffect(() => {
+    if (!autoAdvancing || !world || world.agents.npcs.length === 0) return
+
+    const timer = setInterval(() => {
+      handleAdvanceTime()
+    }, autoAdvanceInterval * 1000)
+
+    return () => clearInterval(timer)
+  }, [autoAdvancing, world, autoAdvanceInterval])
+
+  const toggleAutoAdvance = () => {
+    setAutoAdvancing(!autoAdvancing)
   }
 
   if (!worldRecord) {
@@ -98,14 +117,41 @@ export default function WorldDetailPage() {
           <h1 className="text-2xl font-semibold">World Slice</h1>
           <p className="mt-1 text-sm text-slate-600">{worldRecord.worldPrompt}</p>
         </div>
-        <button
-          onClick={handleAdvanceTime}
-          disabled={advancing || !world || world.agents.npcs.length === 0}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-blue-700"
-          title={world?.agents.npcs.length === 0 ? '需要先初始化世界（女娲造人 + 司命编织）' : ''}
-        >
-          {advancing ? '推进中...' : `⏩ 推进时间 (Tick ${world?.tick || 0})`}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 自动推进控制 */}
+          <div className="flex items-center gap-2 rounded border bg-white px-3 py-2">
+            <label className="text-xs text-slate-600">间隔(秒):</label>
+            <input
+              type="number"
+              min="1"
+              max="60"
+              value={autoAdvanceInterval}
+              onChange={(e) => setAutoAdvanceInterval(Math.max(1, parseInt(e.target.value) || 3))}
+              className="w-16 rounded border px-2 py-1 text-xs"
+              disabled={autoAdvancing}
+            />
+          </div>
+          <button
+            onClick={toggleAutoAdvance}
+            disabled={!world || world.agents.npcs.length === 0}
+            className={`rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
+              autoAdvancing 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-green-600 hover:bg-green-700'
+            }`}
+            title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
+          >
+            {autoAdvancing ? '⏸️ 停止自动推进' : '▶️ 自动推进'}
+          </button>
+          <button
+            onClick={handleAdvanceTime}
+            disabled={advancing || !world || world.agents.npcs.length === 0 || autoAdvancing}
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-blue-700"
+            title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
+          >
+            {advancing ? '推进中...' : `⏩ 推进一步 (Tick ${world?.tick || 0})`}
+          </button>
+        </div>
       </div>
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <ChatShell onWorldUpdate={setWorld} />
@@ -121,6 +167,16 @@ export default function WorldDetailPage() {
               onClick={() => setActiveTab('world')}
             >
               世界信息
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${
+                activeTab === 'observer'
+                  ? 'border-b-2 border-slate-900 text-slate-900'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              onClick={() => setActiveTab('observer')}
+            >
+              🔍 Agent 观察
             </button>
             <button
               className={`px-4 py-2 text-sm font-medium ${
@@ -166,6 +222,7 @@ export default function WorldDetailPage() {
 
           {/* Tab Content */}
           {activeTab === 'world' && <PanelShell world={world} />}
+          {activeTab === 'observer' && <AgentObserverPanel world={world} />}
           {activeTab === 'agents' && (
             <AgentGeneratorPanel 
               worldId={worldId} 
