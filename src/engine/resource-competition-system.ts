@@ -504,4 +504,25 @@ export class ResourceCompetitionSystem {
   getAllResources(): Map<string, Resource> {
     return this.resources
   }
+
+  /**
+   * 导出快照
+   */
+  toSnapshot(): { resources: Record<string, Resource> } {
+    const resources: Record<string, Resource> = {}
+    for (const [id, res] of this.resources) {
+      resources[id] = res
+    }
+    return { resources }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { resources: Record<string, Resource> }): void {
+    this.resources.clear()
+    for (const [id, res] of Object.entries(snapshot.resources)) {
+      this.resources.set(id, res)
+    }
+  }
 }

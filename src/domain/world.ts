@@ -1,4 +1,12 @@
 import type { NarrativeSystem } from './narrative'
+import type { Reputation, ReputationDimension } from '@/engine/reputation-system'
+import type { SocialRole, RoleConflict } from '@/engine/social-role-system'
+import type { Resource, ResourceClaim } from '@/engine/resource-competition-system'
+import type { DramaticTension, TensionEvent } from '@/engine/dramatic-tension-system'
+import type { EmergentProperty } from '@/engine/emergent-property-detector'
+import type { Meme, MemeTransmission } from '@/engine/meme-propagation-system'
+import type { AttentionState } from '@/engine/attention-mechanism'
+import type { KnowledgeNode, KnowledgeEdge } from '@/engine/knowledge-graph'
 
 export type AgentKind = 'world' | 'persona' | 'personal' | 'social'
 
@@ -89,6 +97,59 @@ export type PersonalAgentState = {
   }
 }
 
+// ===== 系统快照类型（用于持久化） =====
+
+export type ReputationSnapshot = {
+  reputations: Record<string, Reputation>
+  socialNetwork: Record<string, string[]>
+}
+
+export type SocialRoleSnapshot = {
+  agentRoles: Record<string, SocialRole[]>
+  roleConflicts: RoleConflict[]
+}
+
+export type ResourceSnapshot = {
+  resources: Record<string, Resource>
+}
+
+export type TensionSnapshot = {
+  tensions: Record<string, DramaticTension>
+  events: TensionEvent[]
+  tensionCounter: number
+}
+
+export type EmergenceSnapshot = {
+  detectedProperties: Array<Omit<EmergentProperty, 'indicators'> & { indicators: Record<string, number> }>
+  propertyCounter: number
+}
+
+export type MemeSnapshot = {
+  memes: Record<string, Meme>
+  transmissions: MemeTransmission[]
+  memeCounter: number
+}
+
+export type AttentionSnapshot = {
+  states: Record<string, Omit<AttentionState, 'attention_weights'> & { attention_weights: Record<string, number> }>
+}
+
+export type KnowledgeGraphSnapshot = {
+  nodes: KnowledgeNode[]
+  edges: KnowledgeEdge[]
+}
+
+export type SystemsState = {
+  reputation?: ReputationSnapshot
+  social_roles?: SocialRoleSnapshot
+  resources?: ResourceSnapshot
+  tension?: TensionSnapshot
+  emergence?: EmergenceSnapshot
+  memes?: MemeSnapshot
+  attention?: AttentionSnapshot
+  knowledge_graph?: KnowledgeGraphSnapshot
+}
+
 export type WorldSlice = {
   world_id: string
   tick: number
@@ -108,6 +169,7 @@ export type WorldSlice = {
   events: Array<{ id: string; type: string; timestamp: string; payload?: Record<string, unknown> }>
   relations: Record<string, number>
   active_hooks: string[]
+  systems: SystemsState
 }
 
 export function createInitialWorldSlice(): WorldSlice {
@@ -170,5 +232,6 @@ export function createInitialWorldSlice(): WorldSlice {
     events: [],
     relations: {},
     active_hooks: [],
+    systems: {},
   }
 }

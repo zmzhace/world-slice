@@ -440,4 +440,26 @@ export class SocialRoleSystem {
   getAllConflicts(): RoleConflict[] {
     return this.roleConflicts
   }
+
+  /**
+   * 导出快照
+   */
+  toSnapshot(): { agentRoles: Record<string, SocialRole[]>; roleConflicts: RoleConflict[] } {
+    const agentRoles: Record<string, SocialRole[]> = {}
+    for (const [id, roles] of this.agentRoles) {
+      agentRoles[id] = roles
+    }
+    return { agentRoles, roleConflicts: this.roleConflicts }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { agentRoles: Record<string, SocialRole[]>; roleConflicts: RoleConflict[] }): void {
+    this.agentRoles.clear()
+    for (const [id, roles] of Object.entries(snapshot.agentRoles)) {
+      this.agentRoles.set(id, roles)
+    }
+    this.roleConflicts = snapshot.roleConflicts
+  }
 }

@@ -2,24 +2,23 @@ import { createHookBus } from './hooks'
 import { createNuwaService } from './nuwa-service'
 import { applyMemoryDecay } from './memory'
 import { updateVitalsAfterTick } from './vitals'
-import { applyPersonaDrift } from './persona'
+import { applyPersonaDrift, generateDriftSignals } from './persona'
 import { mapSearchResultsToSocialContext } from '@/server/search/mapper'
 import { executeNpcAgents } from './npc-agent-executor'
 import type { AgentAction } from '@/domain/actions'
-import type { WorldSlice, PersonalAgentState } from '@/domain/world'
+import type { WorldSlice, PersonalAgentState, SystemsState } from '@/domain/world'
 import type { SearchSignal } from '@/domain/search'
 import { arbitratePatches } from './arbiter'
 import { judgeLife, decideReincarnation, createHoutuConfig } from '@/domain/houtu'
 import { createPersonalAgent } from '@/domain/agents'
 import { createTimeEngine } from './time-engine'
 import { createRecommendationSystem } from './recommendation-system'
-import { createKnowledgeGraph } from './knowledge-graph'
+import { createKnowledgeGraph, KnowledgeGraph } from './knowledge-graph'
 import { NarrativeRecognizer } from './narrative-recognizer'
 import { StoryArcDetector } from './story-arc-detector'
 import { NarrativeSummarizer } from './narrative-summarizer'
 import { NarrativeInfluenceSystem } from './narrative-influence'
 import { CollectiveMemorySystem } from './collective-memory'
-import { AgentDecisionMaker } from './agent-decision-maker'
 import { ReputationSystem } from './reputation-system'
 import { CognitiveBiasSystem } from './cognitive-bias-system'
 import { ResourceCompetitionSystem } from './resource-competition-system'
@@ -36,7 +35,7 @@ type OrchestratorOptions = {
   panguRegistry?: { runAll: (world: WorldSlice) => Promise<{ agentId: string; patch?: unknown; error?: string }[]> }
 }
 
-// 全局系统实例（跨 tick 保持状态）
+// 全局系统实例（跨 tick 保持状态，从 world.systems 水合）
 let globalReputationSystem: ReputationSystem | null = null
 let globalBiasSystem: CognitiveBiasSystem | null = null
 let globalResourceSystem: ResourceCompetitionSystem | null = null
@@ -46,6 +45,76 @@ let globalRoleSystem: SocialRoleSystem | null = null
 let globalMemeSystem: MemePropagationSystem | null = null
 let globalMemorySystems: Map<string, HierarchicalMemorySystem> = new Map()
 let globalAttentionMechanism: AttentionMechanism | null = null
+
+/**
+ * 从 world.systems 水合全局系统单例
+ */
+function hydrateSystemsFromWorld(world: WorldSlice): void {
+  const sys = world.systems || {}
+
+  // 声誉系统
+  globalReputationSystem = new ReputationSystem()
+  if (sys.reputation) {
+    globalReputationSystem.fromSnapshot(sys.reputation)
+  }
+
+  // 认知偏差（无状态，每次 new 即可）
+  globalBiasSystem = new CognitiveBiasSystem()
+
+  // 资源竞争
+  globalResourceSystem = new ResourceCompetitionSystem()
+  if (sys.resources) {
+    globalResourceSystem.fromSnapshot(sys.resources)
+  } else {
+    globalResourceSystem.initializeResources(world)
+  }
+
+  // 戏剧张力
+  globalTensionSystem = new DramaticTensionSystem()
+  if (sys.tension) {
+    globalTensionSystem.fromSnapshot(sys.tension)
+  }
+
+  // 涌现检测
+  globalEmergenceDetector = new EmergentPropertyDetector()
+  if (sys.emergence) {
+    globalEmergenceDetector.fromSnapshot(sys.emergence)
+  }
+
+  // 社会角色
+  globalRoleSystem = new SocialRoleSystem()
+  if (sys.social_roles) {
+    globalRoleSystem.fromSnapshot(sys.social_roles)
+  }
+
+  // 模因传播
+  globalMemeSystem = new MemePropagationSystem()
+  if (sys.memes) {
+    globalMemeSystem.fromSnapshot(sys.memes)
+  }
+
+  // 注意力机制
+  globalAttentionMechanism = new AttentionMechanism()
+  if (sys.attention) {
+    globalAttentionMechanism.fromSnapshot(sys.attention)
+  }
+}
+
+/**
+ * 将所有系统状态导出为 SystemsState
+ */
+function exportSystemsState(knowledgeGraph: KnowledgeGraph): SystemsState {
+  return {
+    reputation: globalReputationSystem!.toSnapshot(),
+    social_roles: globalRoleSystem!.toSnapshot(),
+    resources: globalResourceSystem!.toSnapshot(),
+    tension: globalTensionSystem!.toSnapshot(),
+    emergence: globalEmergenceDetector!.toSnapshot(),
+    memes: globalMemeSystem!.toSnapshot(),
+    attention: globalAttentionMechanism!.toSnapshot(),
+    knowledge_graph: knowledgeGraph.toJSON(),
+  }
+}
 
 export async function runWorldTick(world: WorldSlice, options: OrchestratorOptions = {}): Promise<WorldSlice> {
   const bus = createHookBus()
@@ -57,54 +126,28 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   // 初始化新系统
   const timeEngine = createTimeEngine()
   const recSystem = createRecommendationSystem()
-  const knowledgeGraph = createKnowledgeGraph(world)
   const narrativeInfluence = new NarrativeInfluenceSystem()
   const collectiveMemory = new CollectiveMemorySystem()
-  const decisionMaker = new AgentDecisionMaker()
-  
-  // 初始化 Phase 4-5 系统（全局单例）
-  if (!globalReputationSystem) {
-    globalReputationSystem = new ReputationSystem()
-    console.log('[Orchestrator] Initialized ReputationSystem')
+
+  // 从 world.systems 水合全局系统（替代旧的 if (!global) new() 模式）
+  hydrateSystemsFromWorld(world)
+
+  // 知识图谱：如果有持久化快照则恢复，否则从世界状态构建
+  let knowledgeGraph: KnowledgeGraph
+  if (world.systems?.knowledge_graph) {
+    knowledgeGraph = KnowledgeGraph.fromJSON(world.systems.knowledge_graph)
+  } else {
+    knowledgeGraph = createKnowledgeGraph(world)
   }
-  if (!globalBiasSystem) {
-    globalBiasSystem = new CognitiveBiasSystem()
-    console.log('[Orchestrator] Initialized CognitiveBiasSystem')
-  }
-  if (!globalResourceSystem) {
-    globalResourceSystem = new ResourceCompetitionSystem()
-    globalResourceSystem.initializeResources(world)
-    console.log('[Orchestrator] Initialized ResourceCompetitionSystem')
-  }
-  if (!globalTensionSystem) {
-    globalTensionSystem = new DramaticTensionSystem()
-    console.log('[Orchestrator] Initialized DramaticTensionSystem')
-  }
-  if (!globalEmergenceDetector) {
-    globalEmergenceDetector = new EmergentPropertyDetector()
-    console.log('[Orchestrator] Initialized EmergentPropertyDetector')
-  }
-  if (!globalRoleSystem) {
-    globalRoleSystem = new SocialRoleSystem()
-    console.log('[Orchestrator] Initialized SocialRoleSystem')
-  }
-  if (!globalMemeSystem) {
-    globalMemeSystem = new MemePropagationSystem()
-    console.log('[Orchestrator] Initialized MemePropagationSystem')
-  }
-  if (!globalAttentionMechanism) {
-    globalAttentionMechanism = new AttentionMechanism()
-    console.log('[Orchestrator] Initialized AttentionMechanism')
-  }
-  
-  const reputationSystem = globalReputationSystem
-  const biasSystem = globalBiasSystem
-  const resourceSystem = globalResourceSystem
-  const tensionSystem = globalTensionSystem
-  const emergenceDetector = globalEmergenceDetector
-  const roleSystem = globalRoleSystem
-  const memeSystem = globalMemeSystem
-  const attentionMechanism = globalAttentionMechanism
+
+  const reputationSystem = globalReputationSystem!
+  const biasSystem = globalBiasSystem!
+  const resourceSystem = globalResourceSystem!
+  const tensionSystem = globalTensionSystem!
+  const emergenceDetector = globalEmergenceDetector!
+  const roleSystem = globalRoleSystem!
+  const memeSystem = globalMemeSystem!
+  const attentionMechanism = globalAttentionMechanism!
 
   // 时间引擎：初始化所有 agents 的时间模式（如果还没有）
   const npcsWithTimePatterns = timeEngine.initializeTimePatterns(world.agents.npcs)
@@ -118,7 +161,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const updatedMemoryShort = applyMemoryDecay(world.agents.personal.memory_short)
   const updatedMemoryLong = applyMemoryDecay(world.agents.personal.memory_long)
   const updatedVitals = updateVitalsAfterTick(world.agents.personal.vitals)
-  const updatedPersona = applyPersonaDrift(world.agents.personal.persona, [])
+  const updatedPersona = applyPersonaDrift(world.agents.personal.persona, generateDriftSignals(world.agents.personal.action_history))
 
   // Parallel update for all NPC agents (只更新激活的 agents)
   const updatedNpcs = await Promise.all(
@@ -133,7 +176,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
         memory_short: applyMemoryDecay(npc.memory_short),
         memory_long: applyMemoryDecay(npc.memory_long),
         vitals: updateVitalsAfterTick(npc.vitals),
-        persona: applyPersonaDrift(npc.persona, []),
+        persona: applyPersonaDrift(npc.persona, generateDriftSignals(npc.action_history || [])),
       }
     })
   )
@@ -193,8 +236,9 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   }
 
   if (!options.panguRegistry) {
-    await bus.emit('after_tick', { world: baseNext })
-    return baseNext
+    const earlyNext = { ...baseNext, systems: exportSystemsState(knowledgeGraph) }
+    await bus.emit('after_tick', { world: earlyNext })
+    return earlyNext
   }
 
   // 并行执行 Pangu agents 和 NPC agents（只执行激活的 agents）
@@ -501,11 +545,29 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[ReputationSystem] Avg trust: ${reputationStats.avg_trustworthiness.toFixed(2)}, Events: ${reputationStats.total_events}`)
   }
   
-  // 2. 社会角色系统 - 为所有 agents 分配角色
+  // 2. 社会角色系统 - 为所有 agents 分配角色并写回 agent 状态
   const npcsWithRoles = next.agents.npcs.map(agent => {
     const roles = roleSystem.assignRoles(agent, next)
-    const conflicts = roleSystem.detectRoleConflicts(agent)
-    return agent  // 角色信息存储在 roleSystem 中
+    roleSystem.detectRoleConflicts(agent)
+    // 将主要角色写入 agent 的 narrative_roles
+    const primaryRole = roles[0]
+    if (primaryRole) {
+      return {
+        ...agent,
+        narrative_roles: {
+          ...agent.narrative_roles,
+          [`role-${primaryRole.type}`]: {
+            role: primaryRole.name === '领导者' ? 'protagonist' as const :
+                  primaryRole.name === '追随者' ? 'supporting' as const :
+                  primaryRole.name === '调解者' ? 'catalyst' as const :
+                  'observer' as const,
+            involvement: primaryRole.identity_strength,
+            impact: primaryRole.identity_strength * 0.8,
+          }
+        }
+      }
+    }
+    return agent
   })
   const roleStats = roleSystem.getStats()
   if (nextTick % 10 === 0 && roleStats.total_roles > 0) {
@@ -533,7 +595,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   }
   
   // 5. 涌现属性检测器 - 检测涌现
-  const worldHistory = []  // TODO: 维护历史窗口
+  const worldHistory: WorldSlice[] = []  // TODO: 维护历史窗口
   const emergentProperties = emergenceDetector.detectEmergence(next, worldHistory)
   if (emergentProperties.length > 0) {
     console.log(`[EmergenceDetector] Detected ${emergentProperties.length} emergent properties:`)
@@ -575,18 +637,40 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[MemeSystem] Memes: ${memeStats.total_memes}, Transmissions: ${memeStats.successful_transmissions}, Mutation rate: ${(memeStats.mutation_rate * 100).toFixed(1)}%`)
   }
   
-  // 7. 注意力机制 - 分配注意力
-  const npcsWithAttention = next.agents.npcs.map(agent => {
-    const stimuli = attentionMechanism.generateStimuliFromWorld(next, agent)
-    const allocations = attentionMechanism.allocateAttention(agent, stimuli, nextTick)
-    
+  // 7. 注意力机制 - 分配注意力 + 接入推荐系统
+  const npcsWithAttention = await Promise.all(next.agents.npcs.map(async agent => {
+    // 推荐系统为 agent 推荐事件
+    const recommendedEvents = await recSystem.recommendEvents(agent, next)
+
+    // 将推荐事件转为刺激
+    const recStimuli = recommendedEvents.slice(0, 3).map(evt =>
+      attentionMechanism.createStimulus('event', evt.id, `Recommended: ${evt.type}`, {
+        salience: 0.8,
+        urgency: 0.7,
+        relevance: 0.9,
+      })
+    )
+
+    const worldStimuli = attentionMechanism.generateStimuliFromWorld(next, agent)
+    const allStimuli = [...recStimuli, ...worldStimuli]
+    const allocations = attentionMechanism.allocateAttention(agent, allStimuli, nextTick)
+
     // 如果在休息，恢复注意力
     if (agent.vitals.energy > 0.7 && agent.vitals.stress < 0.3) {
       attentionMechanism.recoverAttention(agent)
     }
-    
-    return agent  // 注意力状态存储在 attentionMechanism 中
-  })
+
+    // 将注意力分配结果写回 agent 的 focus
+    const topFocus = allocations[0]
+    const focusBoost = topFocus ? topFocus.weight * 0.1 : 0
+    return {
+      ...agent,
+      vitals: {
+        ...agent.vitals,
+        focus: Math.min(1, agent.vitals.focus + focusBoost),
+      },
+    }
+  }))
   
   const attentionStats = attentionMechanism.getStats()
   if (nextTick % 10 === 0) {
@@ -619,13 +703,14 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[MemorySystem] WM: ${memStats.working_memory.count}/${memStats.working_memory.capacity}, STM: ${memStats.short_term_memory.count}/${memStats.short_term_memory.capacity}, LTM: ${memStats.long_term_memory.count}`)
   }
   
-  // 更新 next 的 agents
+  // 更新 next 的 agents + 导出所有系统状态到 next.systems
   next = {
     ...next,
     agents: {
       ...next.agents,
       npcs: npcsWithAttention
-    }
+    },
+    systems: exportSystemsState(updatedKnowledgeGraph),
   }
 
   await bus.emit('after_tick', { world: next })

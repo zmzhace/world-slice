@@ -390,4 +390,32 @@ export class AttentionMechanism {
   getAttentionState(agentId: string): AttentionState | undefined {
     return this.attentionStates.get(agentId)
   }
+
+  /**
+   * 导出快照
+   */
+  toSnapshot(): { states: Record<string, Omit<AttentionState, 'attention_weights'> & { attention_weights: Record<string, number> }> } {
+    const states: Record<string, any> = {}
+    for (const [id, state] of this.attentionStates) {
+      states[id] = {
+        ...state,
+        attention_weights: Object.fromEntries(state.attention_weights),
+      }
+    }
+    return { states }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { states: Record<string, any> }): void {
+    this.attentionStates.clear()
+    for (const [id, state] of Object.entries(snapshot.states)) {
+      const s = state as any
+      this.attentionStates.set(id, {
+        ...s,
+        attention_weights: new Map(Object.entries(s.attention_weights || {})),
+      })
+    }
+  }
 }

@@ -736,4 +736,26 @@ export class EmergentPropertyDetector {
   getRecentProperties(count: number = 10): EmergentProperty[] {
     return this.detectedProperties.slice(-count)
   }
+
+  /**
+   * 导出快照（Map → Record 序列化）
+   */
+  toSnapshot(): { detectedProperties: Array<Omit<EmergentProperty, 'indicators'> & { indicators: Record<string, number> }>; propertyCounter: number } {
+    const detectedProperties = this.detectedProperties.map(p => ({
+      ...p,
+      indicators: Object.fromEntries(p.indicators),
+    }))
+    return { detectedProperties, propertyCounter: this.propertyCounter }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { detectedProperties: Array<Omit<EmergentProperty, 'indicators'> & { indicators: Record<string, number> }>; propertyCounter: number }): void {
+    this.detectedProperties = snapshot.detectedProperties.map(p => ({
+      ...p,
+      indicators: new Map(Object.entries(p.indicators)),
+    }))
+    this.propertyCounter = snapshot.propertyCounter
+  }
 }

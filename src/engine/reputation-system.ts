@@ -432,4 +432,33 @@ export class ReputationSystem {
   getAllReputations(): Map<string, Reputation> {
     return this.reputations
   }
+
+  /**
+   * 导出快照（JSON 可序列化）
+   */
+  toSnapshot(): { reputations: Record<string, Reputation>; socialNetwork: Record<string, string[]> } {
+    const reputations: Record<string, Reputation> = {}
+    for (const [id, rep] of this.reputations) {
+      reputations[id] = rep
+    }
+    const socialNetwork: Record<string, string[]> = {}
+    for (const [id, friends] of this.socialNetwork) {
+      socialNetwork[id] = Array.from(friends)
+    }
+    return { reputations, socialNetwork }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { reputations: Record<string, Reputation>; socialNetwork: Record<string, string[]> }): void {
+    this.reputations.clear()
+    for (const [id, rep] of Object.entries(snapshot.reputations)) {
+      this.reputations.set(id, rep)
+    }
+    this.socialNetwork.clear()
+    for (const [id, friends] of Object.entries(snapshot.socialNetwork)) {
+      this.socialNetwork.set(id, new Set(friends))
+    }
+  }
 }

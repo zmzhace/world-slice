@@ -539,4 +539,27 @@ export class DramaticTensionSystem {
       t => t.status !== 'released'
     )
   }
+
+  /**
+   * 导出快照
+   */
+  toSnapshot(): { tensions: Record<string, DramaticTension>; events: TensionEvent[]; tensionCounter: number } {
+    const tensions: Record<string, DramaticTension> = {}
+    for (const [id, t] of this.tensions) {
+      tensions[id] = t
+    }
+    return { tensions, events: this.events, tensionCounter: this.tensionCounter }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { tensions: Record<string, DramaticTension>; events: TensionEvent[]; tensionCounter: number }): void {
+    this.tensions.clear()
+    for (const [id, t] of Object.entries(snapshot.tensions)) {
+      this.tensions.set(id, t)
+    }
+    this.events = snapshot.events
+    this.tensionCounter = snapshot.tensionCounter
+  }
 }

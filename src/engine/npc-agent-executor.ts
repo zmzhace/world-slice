@@ -2,6 +2,7 @@ import type { PersonalAgentState, WorldSlice } from '@/domain/world'
 import type { AgentPatch } from '@/domain/agents'
 import { extractWorldKnowledge, generateAgentContext } from './world-knowledge'
 import { AgentDecisionMaker } from './agent-decision-maker'
+import { CognitiveBiasSystem } from './cognitive-bias-system'
 
 /**
  * NPC Agent Executor - 并行执行 NPC agents 的决策和行动
@@ -19,6 +20,7 @@ type AgentDecision = {
 
 // 创建全局决策制定器实例
 const decisionMaker = new AgentDecisionMaker()
+const biasSystem = new CognitiveBiasSystem()
 
 /**
  * 获取行动的友好标签
@@ -52,15 +54,38 @@ function makeAgentDecision(agent: PersonalAgentState, world: WorldSlice): AgentD
     narratives: world.narratives.patterns,
     recentEvents: world.events.slice(-20)
   })
-  
+
+  // 认知偏差系统：分配偏差并应用到决策
+  const biases = biasSystem.assignBiases(agent)
+  const { modified_decision, effects } = biasSystem.applyBiasToDecision(
+    agent,
+    decision,
+    {
+      world,
+      alternatives: [],
+      history: (agent.action_history || []).map(a => ({
+        type: a.type as any,
+        intensity: 0.5,
+        reason: '',
+      })),
+    },
+    biases
+  )
+
+  // 将偏差效果记录到 reasoning
+  const appliedEffects = effects.filter(e => e.applied)
+  const biasNote = appliedEffects.length > 0
+    ? ` [偏差: ${appliedEffects.map(e => e.impact_description).join('; ')}]`
+    : ''
+
   return {
     agentId: agent.genetics.seed,
     action: {
-      type: decision.type,
-      target: decision.target,
-      intensity: decision.intensity,
+      type: modified_decision.type,
+      target: modified_decision.target,
+      intensity: modified_decision.intensity,
     },
-    reasoning: decision.reason,
+    reasoning: (modified_decision.reason || '') + biasNote,
   }
 }
 
@@ -246,16 +271,40 @@ function decisionToPatch(decision: AgentDecision, agent: PersonalAgentState, wor
   
   // 所有行动都会轻微增加衰老
   updatedAgent.vitals.aging_index = Math.min(1, updatedAgent.vitals.aging_index + 0.001)
+
+  // 记录行动到 action_history（用于 persona drift）
+  updatedAgent.action_history = [
+    ...(updatedAgent.action_history || []),
+    { type: action.type, timestamp: new Date().toISOString() }
+  ]
+
+  // 将决策生成为短期记忆
+  const actionLabel = getActionLabel(action.type)
+  const targetLabel = action.target ? `对象: ${action.target}` : ''
+  const memoryContent = `${actionLabel}${targetLabel ? ' ' + targetLabel : ''}${decision.reasoning ? ' - ' + decision.reasoning : ''}`
+
+  updatedAgent.memory_short = [
+    ...(updatedAgent.memory_short || []),
+    {
+      id: `decision-${agent.genetics.seed}-${world.tick}`,
+      content: memoryContent,
+      importance: action.intensity * 0.5,
+      emotional_weight: updatedAgent.emotion.intensity * 0.3,
+      source: 'self' as const,
+      timestamp: new Date().toISOString(),
+      decay_rate: 0.1,
+      retrieval_strength: 0.6,
+    }
+  ].slice(-20) // 保留最近 20 条
   
   // 生成事件（包含职业和决策理由）
   const occupationLabel = agent.occupation ? `[${agent.occupation}]` : ''
-  const actionLabel = getActionLabel(action.type)
-  const targetLabel = action.target ? ` → ${action.target}` : ''
-  
+  const eventTargetLabel = action.target ? ` → ${action.target}` : ''
+
   const event = {
     id: `agent-${agent.genetics.seed}-${world.tick}`,
     kind: 'micro' as const,
-    summary: `${agent.identity.name}${occupationLabel} ${actionLabel}${targetLabel}`,
+    summary: `${agent.identity.name}${occupationLabel} ${actionLabel}${eventTargetLabel}`,
     conflict: action.type === 'compete',
   }
   

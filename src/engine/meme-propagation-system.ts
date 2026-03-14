@@ -507,4 +507,27 @@ export class MemePropagationSystem {
       m.carriers.includes(agentId)
     )
   }
+
+  /**
+   * 导出快照
+   */
+  toSnapshot(): { memes: Record<string, Meme>; transmissions: MemeTransmission[]; memeCounter: number } {
+    const memes: Record<string, Meme> = {}
+    for (const [id, m] of this.memes) {
+      memes[id] = m
+    }
+    return { memes, transmissions: this.transmissions, memeCounter: this.memeCounter }
+  }
+
+  /**
+   * 从快照恢复
+   */
+  fromSnapshot(snapshot: { memes: Record<string, Meme>; transmissions: MemeTransmission[]; memeCounter: number }): void {
+    this.memes.clear()
+    for (const [id, m] of Object.entries(snapshot.memes)) {
+      this.memes.set(id, m)
+    }
+    this.transmissions = snapshot.transmissions
+    this.memeCounter = snapshot.memeCounter
+  }
 }
