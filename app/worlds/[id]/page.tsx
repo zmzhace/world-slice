@@ -136,50 +136,78 @@ export default function WorldDetailPage() {
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">World Slice</h1>
-          <p className="mt-1 text-sm text-slate-600">{worldRecord.worldPrompt}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* 自动推进控制 */}
-          <div className="flex items-center gap-2 rounded border bg-white px-3 py-2">
-            <label className="text-xs text-slate-600">推进:</label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={autoAdvanceTicks}
-              onChange={(e) => setAutoAdvanceTicks(Math.max(1, parseInt(e.target.value) || 10))}
-              className="w-16 rounded border px-2 py-1 text-xs"
-              disabled={autoAdvancing}
-            />
-            <span className="text-xs text-slate-600">Ticks</span>
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* 顶部控制栏 */}
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-lg shadow-sm">
+        <div className="mx-auto max-w-7xl px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/worlds')}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                <span>←</span>
+                <span className="hidden sm:inline">返回</span>
+              </button>
+              <div className="h-6 w-px bg-slate-300" />
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">World Slice</h1>
+                <p className="text-xs text-slate-600 line-clamp-1">{worldRecord.worldPrompt}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {/* Tick 显示 */}
+              <div className="hidden sm:flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2">
+                <span className="text-xs font-medium text-slate-600">Tick</span>
+                <span className="text-sm font-bold text-slate-900">{world?.tick || 0}</span>
+              </div>
+              
+              {/* 自动推进控制 */}
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={autoAdvanceTicks}
+                  onChange={(e) => setAutoAdvanceTicks(Math.max(1, parseInt(e.target.value) || 10))}
+                  className="w-12 rounded border-slate-200 px-2 py-1 text-xs text-center focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-100"
+                  disabled={autoAdvancing}
+                />
+                <span className="text-xs text-slate-600 hidden sm:inline">Ticks</span>
+              </div>
+              
+              <button
+                onClick={toggleAutoAdvance}
+                disabled={!world || world.agents.npcs.length === 0 || advancing}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                  autoAdvancing 
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
+                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                }`}
+                title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
+              >
+                <span>{autoAdvancing ? '⏸️' : '▶️'}</span>
+                <span className="hidden sm:inline">{autoAdvancing ? '停止' : '自动'}</span>
+              </button>
+              
+              <button
+                onClick={handleAdvanceTime}
+                disabled={advancing || !world || world.agents.npcs.length === 0 || autoAdvancing}
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
+              >
+                <span>⏩</span>
+                <span className="hidden sm:inline">{advancing ? '推进中...' : '+1 Tick'}</span>
+              </button>
+            </div>
           </div>
-          <button
-            onClick={toggleAutoAdvance}
-            disabled={!world || world.agents.npcs.length === 0 || advancing}
-            className={`rounded px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
-              autoAdvancing 
-                ? 'bg-red-600 hover:bg-red-700' 
-                : 'bg-green-600 hover:bg-green-700'
-            }`}
-            title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
-          >
-            {autoAdvancing ? '⏸️ 停止' : '▶️ 自动推进'}
-          </button>
-          <button
-            onClick={handleAdvanceTime}
-            disabled={advancing || !world || world.agents.npcs.length === 0 || autoAdvancing}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-blue-700"
-            title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
-          >
-            {advancing ? '推进中...' : `⏩ +1 Tick (当前 ${world?.tick || 0})`}
-          </button>
         </div>
       </div>
-      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+
+      {/* 主内容区 */}
+      <div className="mx-auto max-w-7xl p-8">
+        <div className="grid gap-6 lg:grid-cols-2">
         <ChatShell onWorldUpdate={setWorld} />
         <div>
           {/* Tab Navigation */}
