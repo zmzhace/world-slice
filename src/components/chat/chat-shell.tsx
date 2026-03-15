@@ -1,4 +1,5 @@
 import React from 'react'
+import { MessageSquare } from 'lucide-react'
 import type { WorldSlice } from '@/domain/world'
 import { ChatInput } from './chat-input'
 import { MessageList } from './message-list'
@@ -61,11 +62,26 @@ export function ChatShell({ world, onWorldUpdate }: ChatShellProps) {
   }
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-xl font-semibold">Chat</h2>
-      <MessageList messages={messages} />
-      <ChatInput value={input} onChange={setInput} onSubmit={handleSubmit} disabled={loading} />
-      {summary ? <div className="rounded border p-3">World Summary: {summary}</div> : null}
+    <section className="flex flex-col rounded-xl border border-white/[0.08] bg-[#141414] overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-white/[0.08] px-4 py-3">
+        <MessageSquare className="h-4 w-4 text-slate-400" />
+        <h2 className="text-sm font-semibold text-slate-100">Chat</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        <MessageList messages={messages} />
+      </div>
+
+      <div className="border-t border-white/[0.08] p-3">
+        <ChatInput value={input} onChange={setInput} onSubmit={handleSubmit} disabled={loading} />
+      </div>
+
+      {summary ? (
+        <div className="border-t border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+          <span className="font-medium text-slate-400">World Summary:</span>{' '}
+          {summary}
+        </div>
+      ) : null}
     </section>
   )
 }

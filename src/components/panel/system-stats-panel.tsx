@@ -4,6 +4,21 @@ import React from 'react'
 import type { WorldSlice } from '@/domain/world'
 import { createTimeEngine } from '@/engine/time-engine'
 import { createKnowledgeGraph } from '@/engine/knowledge-graph'
+import {
+  Clock,
+  GitBranch,
+  Crosshair,
+  Zap,
+  User,
+  Calendar,
+  MapPin,
+  Building,
+  Lightbulb,
+  Activity,
+  Database,
+  TrendingUp,
+  BarChart3,
+} from 'lucide-react'
 
 type SystemStatsPanelProps = {
   world: WorldSlice
@@ -37,60 +52,71 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
   }, [world.tick])
 
   if (!stats) {
-    return <div className="text-sm text-slate-500">加载中...</div>
+    return <div className="text-sm text-slate-500 p-4">Loading...</div>
   }
 
   const currentHour = new Date(world.time).getHours()
 
+  const nodeTypeIcons: Record<string, { icon: typeof User; label: string }> = {
+    agent: { icon: User, label: 'Agents' },
+    event: { icon: Zap, label: 'Events' },
+    location: { icon: MapPin, label: 'Locations' },
+    organization: { icon: Building, label: 'Organizations' },
+    concept: { icon: Lightbulb, label: 'Concepts' },
+  }
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">系统统计</h2>
-      <p className="text-sm text-slate-600">
-        实时监控仿真系统的运行状态
-      </p>
+    <div className="space-y-4 p-4">
+      <div>
+        <h2 className="text-base font-semibold text-slate-100">System Stats</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Real-time simulation status
+        </p>
+      </div>
 
       {/* 时间引擎统计 */}
-      <div className="rounded-lg border bg-blue-50 p-4">
-        <h3 className="mb-3 font-semibold text-blue-900">⏰ 时间引擎</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-blue-700">当前时间:</span>
-            <span className="font-medium text-blue-900">
-              {new Date(world.time).toLocaleTimeString('zh-CN', { 
-                hour: '2-digit', 
+      <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.04] p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
+          <Clock className="h-4 w-4 text-blue-400" />
+          Time Engine
+        </h3>
+        <div className="space-y-2.5 text-xs">
+          <StatRow
+            label="Current Time"
+            value={
+              new Date(world.time).toLocaleTimeString('en-US', {
+                hour: '2-digit',
                 minute: '2-digit',
-                hour12: false 
-              })}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-blue-700">活跃 Agents:</span>
-            <span className="font-medium text-blue-900">
-              {stats.timeEngine.active} / {stats.timeEngine.total}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-blue-700">活跃率:</span>
-            <span className="font-medium text-blue-900">
-              {(stats.timeEngine.activityRate * 100).toFixed(1)}%
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-blue-700">休眠 Agents:</span>
-            <span className="font-medium text-blue-900">
-              {stats.timeEngine.sleeping}
-            </span>
-          </div>
-          
+                hour12: false
+              })
+            }
+            accent="blue"
+          />
+          <StatRow
+            label="Active Agents"
+            value={`${stats.timeEngine.active} / ${stats.timeEngine.total}`}
+            accent="blue"
+          />
+          <StatRow
+            label="Activity Rate"
+            value={`${(stats.timeEngine.activityRate * 100).toFixed(1)}%`}
+            accent="amber"
+          />
+          <StatRow
+            label="Sleeping Agents"
+            value={String(stats.timeEngine.sleeping)}
+            accent="blue"
+          />
+
           {/* 活跃度进度条 */}
-          <div className="mt-3">
-            <div className="mb-1 flex items-center justify-between text-xs text-blue-700">
-              <span>活跃度分布</span>
-              <span>{currentHour}:00</span>
+          <div className="mt-3 pt-2 border-t border-white/[0.06]">
+            <div className="mb-1.5 flex items-center justify-between text-[10px]">
+              <span className="text-slate-500">Activity Distribution</span>
+              <span className="text-slate-400 tabular-nums">{currentHour}:00</span>
             </div>
-            <div className="h-3 w-full rounded-full bg-blue-200">
+            <div className="h-1.5 w-full rounded-full bg-white/[0.06]">
               <div
-                className="h-3 rounded-full bg-blue-600 transition-all duration-300"
+                className="h-1.5 rounded-full bg-blue-500/80 transition-all duration-300"
                 style={{ width: `${stats.timeEngine.activityRate * 100}%` }}
               />
             </div>
@@ -99,95 +125,124 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
       </div>
 
       {/* 知识图谱统计 */}
-      <div className="rounded-lg border bg-purple-50 p-4">
-        <h3 className="mb-3 font-semibold text-purple-900">🕸️ 知识图谱</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-purple-700">总节点数:</span>
-            <span className="font-medium text-purple-900">
-              {stats.knowledgeGraph.totalNodes}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-purple-700">总边数:</span>
-            <span className="font-medium text-purple-900">
-              {stats.knowledgeGraph.totalEdges}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-purple-700">平均度数:</span>
-            <span className="font-medium text-purple-900">
-              {stats.knowledgeGraph.avgDegree.toFixed(2)}
-            </span>
-          </div>
+      <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
+          <GitBranch className="h-4 w-4 text-violet-400" />
+          Knowledge Graph
+        </h3>
+        <div className="space-y-2.5 text-xs">
+          <StatRow
+            label="Total Nodes"
+            value={String(stats.knowledgeGraph.totalNodes)}
+            accent="blue"
+          />
+          <StatRow
+            label="Total Edges"
+            value={String(stats.knowledgeGraph.totalEdges)}
+            accent="blue"
+          />
+          <StatRow
+            label="Avg Degree"
+            value={stats.knowledgeGraph.avgDegree.toFixed(2)}
+            accent="amber"
+          />
 
           {/* 节点类型分布 */}
-          <div className="mt-3 space-y-1">
-            <div className="text-xs text-purple-700">节点类型分布:</div>
-            {Object.entries(stats.knowledgeGraph.nodesByType).map(([type, count]) => (
-              <div key={type} className="flex items-center justify-between text-xs">
-                <span className="text-purple-600">
-                  {type === 'agent' && '👤 Agents'}
-                  {type === 'event' && '⚡ 事件'}
-                  {type === 'location' && '📍 地点'}
-                  {type === 'organization' && '🏢 组织'}
-                  {type === 'concept' && '💡 概念'}
-                </span>
-                <span className="font-medium text-purple-800">{count}</span>
-              </div>
-            ))}
+          <div className="mt-3 pt-2 border-t border-white/[0.06] space-y-1.5">
+            <div className="text-[10px] text-slate-500">Node Type Distribution</div>
+            {Object.entries(stats.knowledgeGraph.nodesByType).map(([type, count]) => {
+              const config = nodeTypeIcons[type]
+              const Icon = config?.icon || Database
+              const label = config?.label || type
+              return (
+                <div key={type} className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-400">
+                    <Icon className="h-3 w-3 text-violet-400/70" />
+                    {label}
+                  </span>
+                  <span className="font-medium text-slate-300 tabular-nums">{count}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
 
       {/* 推荐系统状态 */}
-      <div className="rounded-lg border bg-green-50 p-4">
-        <h3 className="mb-3 font-semibold text-green-900">🎯 推荐系统</h3>
-        <div className="space-y-2 text-sm">
+      <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
+          <Crosshair className="h-4 w-4 text-emerald-400" />
+          Recommendation System
+        </h3>
+        <div className="space-y-2.5 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-green-700">状态:</span>
-            <span className="rounded bg-green-200 px-2 py-0.5 text-xs font-medium text-green-800">
-              运行中
+            <span className="text-slate-500">Status</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+              <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+              Running
             </span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-green-700">可推荐事件:</span>
-            <span className="font-medium text-green-900">
-              {world.events.filter(e => !['tick'].includes(e.type)).length}
-            </span>
-          </div>
-          <div className="mt-2 text-xs text-green-600">
-            💡 推荐系统根据 agents 的兴趣、社交网络和事件热度智能推荐内容
+          <StatRow
+            label="Recommendable Events"
+            value={String(world.events.filter(e => !['tick'].includes(e.type)).length)}
+            accent="blue"
+          />
+          <div className="mt-2 text-[10px] text-slate-500 leading-relaxed">
+            Recommends content based on agent interests, social network, and event popularity.
           </div>
         </div>
       </div>
 
       {/* 系统性能 */}
-      <div className="rounded-lg border bg-slate-50 p-4">
-        <h3 className="mb-3 font-semibold text-slate-900">⚡ 系统性能</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-700">当前 Tick:</span>
-            <span className="font-medium text-slate-900">{world.tick}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-700">总事件数:</span>
-            <span className="font-medium text-slate-900">{world.events.length}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-700">活跃叙事:</span>
-            <span className="font-medium text-slate-900">
-              {world.narratives.stats.active_patterns}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-700">故事弧:</span>
-            <span className="font-medium text-slate-900">
-              {world.narratives.stats.total_arcs}
-            </span>
-          </div>
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
+          <Activity className="h-4 w-4 text-slate-400" />
+          Performance
+        </h3>
+        <div className="space-y-2.5 text-xs">
+          <StatRow
+            label="Current Tick"
+            value={String(world.tick)}
+            accent="blue"
+          />
+          <StatRow
+            label="Total Events"
+            value={String(world.events.length)}
+            accent="blue"
+          />
+          <StatRow
+            label="Active Narratives"
+            value={String(world.narratives.stats.active_patterns)}
+            accent="blue"
+          />
+          <StatRow
+            label="Story Arcs"
+            value={String(world.narratives.stats.total_arcs)}
+            accent="blue"
+          />
         </div>
       </div>
+    </div>
+  )
+}
+
+function StatRow({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: string
+  accent: 'blue' | 'amber'
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-slate-500">{label}</span>
+      <span className={`font-medium tabular-nums ${
+        accent === 'amber' ? 'text-amber-400' : 'text-blue-400'
+      }`}>
+        {value}
+      </span>
     </div>
   )
 }

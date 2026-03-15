@@ -8,7 +8,7 @@ type PanelShellProps = {
 
 export function PanelShell({ world }: PanelShellProps) {
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 rounded-xl border border-white/[0.08] bg-[#141414] p-4">
       <WorldInfoPanel world={world} />
     </section>
   )
