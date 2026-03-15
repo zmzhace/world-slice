@@ -1,6 +1,6 @@
 import type { PersonalAgentState, WorldSlice } from '@/domain/world'
 import type { AgentPatch } from '@/domain/agents'
-import type { LLMDecisionResult } from '@/server/llm/agent-decision-llm'
+import type { LLMDecisionResult, SystemFeedback } from '@/server/llm/agent-decision-llm'
 
 /**
  * NPC Agent Executor - 分波执行，同位置互动者能看到彼此的行动
@@ -28,6 +28,7 @@ type AgentDecision = {
     is_conflict: boolean
     goal_progress?: string
   }
+  systemFeedback?: SystemFeedback
 }
 
 /**
@@ -66,6 +67,7 @@ async function makeAgentDecision(
       behavior_description: llmResult.behavior_description,
       new_location: llmResult.new_location,
       effects: llmResult.effects,
+      systemFeedback: llmResult.system_feedback,
     }
   } catch (error) {
     console.warn(`[LLM Agent] ${agent.identity.name} LLM failed, using minimal fallback:`, (error as Error).message)
@@ -208,7 +210,7 @@ function decisionToPatch(decision: AgentDecision, agent: PersonalAgentState, wor
  */
 export async function executeNpcAgents(
   world: WorldSlice
-): Promise<Array<{ agentId: string; patch: AgentPatch; updatedAgent: PersonalAgentState }>> {
+): Promise<Array<{ agentId: string; patch: AgentPatch; updatedAgent: PersonalAgentState; systemFeedback?: SystemFeedback }>> {
   const { npcs } = world.agents
 
   if (npcs.length === 0) {
@@ -223,7 +225,7 @@ export async function executeNpcAgents(
     locationGroups.get(loc)!.push(npc)
   }
 
-  const allResults: Array<{ agentId: string; patch: AgentPatch; updatedAgent: PersonalAgentState }> = []
+  const allResults: Array<{ agentId: string; patch: AgentPatch; updatedAgent: PersonalAgentState; systemFeedback?: SystemFeedback }> = []
 
   // 收集本轮已发生的行动（跨位置也能看到摘要）
   const tickActions: Array<{ name: string; location: string; action: string; dialogue?: string }> = []
@@ -261,7 +263,7 @@ export async function executeNpcAgents(
       if (!agent) continue
 
       const { patch, updatedAgent } = decisionToPatch(decision, agent, world)
-      allResults.push({ agentId: decision.agentId, patch, updatedAgent })
+      allResults.push({ agentId: decision.agentId, patch, updatedAgent, systemFeedback: decision.systemFeedback })
 
       // 记录行动供第二波参考
       const actionDesc = decision.behavior_description || decision.action.type
@@ -300,7 +302,7 @@ export async function executeNpcAgents(
         if (!agent) continue
 
         const { patch, updatedAgent } = decisionToPatch(decision, agent, world)
-        allResults.push({ agentId: decision.agentId, patch, updatedAgent })
+        allResults.push({ agentId: decision.agentId, patch, updatedAgent, systemFeedback: decision.systemFeedback })
 
         tickActions.push({
           name: agent.identity.name,

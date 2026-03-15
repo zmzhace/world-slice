@@ -1,103 +1,103 @@
 /**
- * 认知偏差系统 - 最能提升真实性
- * 核心：Agents 不是完全理性的，会受到各种认知偏差的影响
+ * Cognitive bias system - most effective at improving realism
+ * Core: Agents are not fully rational, they are affected by various cognitive biases
  */
 
 import type { PersonalAgentState, WorldSlice } from '@/domain/world'
 import type { AgentAction } from './agent-decision-maker'
 
 export type BiasType = 
-  | 'confirmation'      // 确认偏差
-  | 'anchoring'         // 锚定效应
-  | 'availability'      // 可得性启发
-  | 'groupthink'        // 群体思维
-  | 'sunk_cost'         // 沉没成本谬误
-  | 'optimism'          // 乐观偏差
-  | 'loss_aversion'     // 损失厌恶
+  | 'confirmation'      // confirmation bias
+  | 'anchoring'         // anchoring effect
+  | 'availability'      // availability heuristic
+  | 'groupthink'        // groupthink
+  | 'sunk_cost'         // sunk cost fallacy
+  | 'optimism'          // optimism bias
+  | 'loss_aversion'     // loss aversion
 
 export type CognitiveBias = {
   type: BiasType
-  strength: number  // 偏差强度 [0-1]
+  strength: number  // bias strength [0-1]
   description: string
-  triggers: string[]  // 触发条件
+  triggers: string[]  // trigger conditions
 }
 
 export type BiasEffect = {
   bias_type: BiasType
   applied: boolean
   impact_description: string
-  decision_change: number  // 决策改变程度 [-1, 1]
+  decision_change: number  // degree of decision change [-1, 1]
 }
 
 export class CognitiveBiasSystem {
-  // 为 agent 分配认知偏差
+  // Assign cognitive biases to agent
   assignBiases(agent: PersonalAgentState): CognitiveBias[] {
     const biases: CognitiveBias[] = []
-    
-    // 基于个性分配偏差
-    // 高开放性 → 较少确认偏差
+
+    // Based on personality traits
+    // High openness -> less confirmation bias
     if (agent.persona.openness < 0.5) {
       biases.push({
         type: 'confirmation',
         strength: 0.7 - agent.persona.openness,
-        description: '倾向于寻找支持自己观点的信息',
+        description: 'Tends to seek information supporting own views',
         triggers: ['decision_making', 'information_processing']
       })
     }
-    
-    // 低稳定性 → 更强的可得性启发
+
+    // Low stability -> stronger availability heuristic
     if (agent.persona.stability < 0.5) {
       biases.push({
         type: 'availability',
         strength: 0.8 - agent.persona.stability,
-        description: '基于容易想起的信息做判断',
+        description: 'Judges based on easily recalled information',
         triggers: ['risk_assessment', 'probability_estimation']
       })
     }
-    
-    // 高依恋 → 群体思维
+
+    // High attachment -> groupthink
     if (agent.persona.attachment > 0.6) {
       biases.push({
         type: 'groupthink',
         strength: agent.persona.attachment * 0.7,
-        description: '为了和谐而压制异议',
+        description: 'Suppresses dissent for group harmony',
         triggers: ['group_decision', 'social_pressure']
       })
     }
-    
-    // 低主动性 → 沉没成本谬误
+
+    // Low agency -> sunk cost fallacy
     if (agent.persona.agency < 0.5) {
       biases.push({
         type: 'sunk_cost',
         strength: 0.7 - agent.persona.agency,
-        description: '因为已投入而继续错误决策',
+        description: 'Continues wrong decisions due to prior investment',
         triggers: ['project_continuation', 'relationship_maintenance']
       })
     }
-    
-    // 高开放性 + 高主动性 → 乐观偏差
+
+    // High openness + high agency -> optimism bias
     if (agent.persona.openness > 0.6 && agent.persona.agency > 0.6) {
       biases.push({
         type: 'optimism',
         strength: (agent.persona.openness + agent.persona.agency) / 2 * 0.6,
-        description: '高估好结果的概率',
+        description: 'Overestimates probability of good outcomes',
         triggers: ['planning', 'risk_taking']
       })
     }
-    
-    // 所有人都有损失厌恶（程度不同）
+
+    // Everyone has loss aversion (varying degrees)
     biases.push({
       type: 'loss_aversion',
       strength: 0.5 + Math.random() * 0.3,
-      description: '损失的痛苦大于获得的快乐',
+      description: 'Pain of loss exceeds joy of gain',
       triggers: ['trade', 'risk_decision']
     })
-    
-    // 锚定效应（普遍存在）
+
+    // Anchoring effect (universal)
     biases.push({
       type: 'anchoring',
       strength: 0.4 + Math.random() * 0.4,
-      description: '过度依赖第一印象',
+      description: 'Over-relies on first impressions',
       triggers: ['first_impression', 'negotiation']
     })
     
@@ -105,7 +105,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 应用偏差到决策
+   * Apply biases to decision
    */
   applyBiasToDecision(
     agent: PersonalAgentState,
@@ -133,7 +133,7 @@ export class CognitiveBiasSystem {
       
       if (effect.applied) {
         effects.push(effect)
-        // 修改决策
+        // Modify decision
         modifiedDecision = this.modifyDecision(modifiedDecision, effect)
       }
     }
@@ -142,7 +142,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 应用特定偏差
+   * Apply specific bias
    */
   private applySpecificBias(
     bias: CognitiveBias,
@@ -176,14 +176,14 @@ export class CognitiveBiasSystem {
         return {
           bias_type: bias.type,
           applied: false,
-          impact_description: '未应用',
+          impact_description: 'Not applied',
           decision_change: 0
         }
     }
   }
   
   /**
-   * 确认偏差：倾向于选择支持现有信念的行动
+   * Confirmation bias: tends to choose actions supporting existing beliefs
    */
   private applyConfirmationBias(
     bias: CognitiveBias,
@@ -191,7 +191,7 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 检查决策是否与核心信念一致
+    // Check if decision aligns with core belief
     if (!agent.core_belief) {
       return { bias_type: 'confirmation', applied: false, impact_description: '', decision_change: 0 }
     }
@@ -202,11 +202,11 @@ export class CognitiveBiasSystem {
     )
     
     if (decisionAligned) {
-      // 强化与信念一致的决策
+      // Reinforce decision aligned with belief
       return {
         bias_type: 'confirmation',
         applied: true,
-        impact_description: `强化了与信念"${agent.core_belief}"一致的决策`,
+        impact_description: `Reinforced decision aligned with belief "${agent.core_belief}"`,
         decision_change: bias.strength * 0.3
       }
     }
@@ -215,7 +215,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 锚定效应：过度依赖第一印象
+   * Anchoring effect: over-relies on first impressions
    */
   private applyAnchoringBias(
     bias: CognitiveBias,
@@ -223,24 +223,24 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 如果有目标，检查第一印象
+    // If there's a target, check first impression
     if (decision.target) {
       const firstImpression = agent.relations[decision.target]
       
       if (firstImpression !== undefined) {
-        // 第一印象影响当前决策
+        // First impression affects current decision
         if (firstImpression > 0.5 && decision.type === 'compete') {
           return {
             bias_type: 'anchoring',
             applied: true,
-            impact_description: `因为对${decision.target}的好印象，降低了竞争倾向`,
+            impact_description: `Reduced competitive tendency due to positive impression of ${decision.target}`,
             decision_change: -bias.strength * 0.4
           }
         } else if (firstImpression < -0.5 && decision.type === 'help') {
           return {
             bias_type: 'anchoring',
             applied: true,
-            impact_description: `因为对${decision.target}的坏印象，降低了帮助倾向`,
+            impact_description: `Reduced helping tendency due to negative impression of ${decision.target}`,
             decision_change: -bias.strength * 0.4
           }
         }
@@ -251,7 +251,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 可得性启发：基于容易想起的信息
+   * Availability heuristic: judges based on easily recalled information
    */
   private applyAvailabilityBias(
     bias: CognitiveBias,
@@ -259,10 +259,10 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 检查最近的记忆
+    // Check recent memories
     const recentMemories = agent.memory_short.slice(-5)
     
-    // 如果最近有负面记忆，倾向于避免风险
+    // If recent negative memories, tend to avoid risk
     const hasNegativeMemory = recentMemories.some(m =>
       m.emotional_weight < -0.5
     )
@@ -271,7 +271,7 @@ export class CognitiveBiasSystem {
       return {
         bias_type: 'availability',
         applied: true,
-        impact_description: '因为最近的负面经历，倾向于避免风险',
+        impact_description: 'Tends to avoid risk due to recent negative experiences',
         decision_change: -bias.strength * 0.5
       }
     }
@@ -280,7 +280,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 群体思维：为了和谐而压制异议
+   * Groupthink: suppresses dissent for harmony
    */
   private applyGroupthinkBias(
     bias: CognitiveBias,
@@ -288,21 +288,21 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 检查是否有多数人支持某个行动
+    // Check if majority supports a certain action
     const { world } = context
     
-    // 简化：如果大多数朋友都在做某事，倾向于跟随
+    // Simplified: if most friends are doing something, tend to follow
     const friends = Object.entries(agent.relations)
       .filter(([_, value]) => value > 0.5)
       .map(([name, _]) => name)
     
     if (friends.length >= 3) {
-      // 假设朋友们倾向于合作
+      // Assume friends tend to cooperate
       if (decision.type !== 'cooperate' && decision.type !== 'help') {
         return {
           bias_type: 'groupthink',
           applied: true,
-          impact_description: '为了与群体保持一致，倾向于合作',
+          impact_description: 'Tends to cooperate to stay aligned with group',
           decision_change: bias.strength * 0.4
         }
       }
@@ -312,7 +312,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 沉没成本谬误：因为已投入而继续
+   * Sunk cost fallacy: continues due to prior investment
    */
   private applySunkCostBias(
     bias: CognitiveBias,
@@ -320,17 +320,17 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 检查是否有长期目标
+    // Check if there's a long-term goal
     const { history } = context
     
-    // 如果过去一直在追求某个目标，即使不合理也继续
+    // If been pursuing a goal for a while, continue even if unreasonable
     const pursuingGoal = history.filter(a => a.type === 'pursue_goal').length
     
     if (pursuingGoal >= 3 && decision.type !== 'pursue_goal') {
       return {
         bias_type: 'sunk_cost',
         applied: true,
-        impact_description: '因为已经投入很多，倾向于继续追求目标',
+        impact_description: 'Tends to continue pursuing goal due to prior investment',
         decision_change: bias.strength * 0.5
       }
     }
@@ -339,7 +339,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 乐观偏差：高估好结果的概率
+   * Optimism bias: overestimates probability of good outcomes
    */
   private applyOptimismBias(
     bias: CognitiveBias,
@@ -347,12 +347,12 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 对于风险行动，高估成功概率
+    // For risky actions, overestimate success probability
     if (decision.type === 'explore' || decision.type === 'compete') {
       return {
         bias_type: 'optimism',
         applied: true,
-        impact_description: '乐观地高估了成功的可能性',
+        impact_description: 'Optimistically overestimated chance of success',
         decision_change: bias.strength * 0.3
       }
     }
@@ -361,7 +361,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 损失厌恶：损失的痛苦 > 获得的快乐
+   * Loss aversion: pain of loss > joy of gain
    */
   private applyLossAversionBias(
     bias: CognitiveBias,
@@ -369,14 +369,14 @@ export class CognitiveBiasSystem {
     agent: PersonalAgentState,
     context: any
   ): BiasEffect {
-    // 如果决策可能导致损失，倾向于避免
+    // If decision may cause loss, tend to avoid
     if (decision.type === 'compete' || decision.type === 'explore') {
-      // 检查当前状态
+      // Check current state
       if (agent.vitals.energy < 0.4 || agent.vitals.stress > 0.6) {
         return {
           bias_type: 'loss_aversion',
           applied: true,
-          impact_description: '害怕损失当前状态，倾向于保守',
+          impact_description: 'Fears losing current state, tends to be conservative',
           decision_change: -bias.strength * 0.6
         }
       }
@@ -386,40 +386,40 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 修改决策
+   * Modify decision
    */
   private modifyDecision(
     decision: AgentAction,
     effect: BiasEffect
   ): AgentAction {
-    // 调整决策强度
+    // Adjust decision intensity
     const newIntensity = Math.max(0, Math.min(1, decision.intensity + effect.decision_change))
     
     return {
       ...decision,
       intensity: newIntensity,
-      reason: `${decision.reason}（受${this.getBiasName(effect.bias_type)}影响）`
+      reason: `${decision.reason} (affected by ${effect.bias_type})`
     }
   }
   
   /**
-   * 获取偏差名称
+   * Get bias name
    */
   private getBiasName(type: BiasType): string {
     const names: Record<BiasType, string> = {
-      confirmation: '确认偏差',
-      anchoring: '锚定效应',
-      availability: '可得性启发',
-      groupthink: '群体思维',
-      sunk_cost: '沉没成本谬误',
-      optimism: '乐观偏差',
-      loss_aversion: '损失厌恶'
+      confirmation: 'confirmation bias',
+      anchoring: 'anchoring effect',
+      availability: 'availability heuristic',
+      groupthink: 'groupthink',
+      sunk_cost: 'sunk cost fallacy',
+      optimism: 'optimism bias',
+      loss_aversion: 'loss aversion'
     }
     return names[type]
   }
   
   /**
-   * 检测偏差触发
+   * Detect bias trigger
    */
   detectBiasTrigger(
     context: string,
@@ -431,7 +431,7 @@ export class CognitiveBiasSystem {
   }
   
   /**
-   * 获取统计信息
+   * Get statistics
    */
   getStats(agents: PersonalAgentState[]): {
     bias_distribution: Map<BiasType, number>
@@ -441,24 +441,42 @@ export class CognitiveBiasSystem {
     const distribution = new Map<BiasType, number>()
     let totalStrength = 0
     let totalCount = 0
-    
+
     for (const agent of agents) {
       const biases = this.assignBiases(agent)
-      
+
       for (const bias of biases) {
         distribution.set(bias.type, (distribution.get(bias.type) || 0) + 1)
         totalStrength += bias.strength
         totalCount++
       }
     }
-    
+
     const mostCommon = Array.from(distribution.entries())
       .sort((a, b) => b[1] - a[1])[0]
-    
+
     return {
       bias_distribution: distribution,
       avg_bias_strength: totalCount > 0 ? totalStrength / totalCount : 0,
       most_common_bias: mostCommon ? mostCommon[0] : 'confirmation'
     }
+  }
+
+  /**
+   * Record LLM-perceived bias (system_feedback.perceived_bias)
+   * Analysis layer — tracks what biases agents self-report
+   */
+  private perceivedBiases: Map<string, { bias: string; tick: number }[]> = new Map()
+
+  recordBias(agentId: string, biasName: string, tick: number): void {
+    const history = this.perceivedBiases.get(agentId) || []
+    history.push({ bias: biasName, tick })
+    // Keep last 20 entries
+    if (history.length > 20) history.shift()
+    this.perceivedBiases.set(agentId, history)
+  }
+
+  getPerceivedBiases(agentId: string): { bias: string; tick: number }[] {
+    return this.perceivedBiases.get(agentId) || []
   }
 }

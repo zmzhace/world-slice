@@ -1,29 +1,29 @@
 /**
- * 戏剧张力系统 - 让故事最精彩
- * 核心：主动创造和维持戏剧张力，让故事更引人入胜
+ * Dramatic Tension System - makes stories compelling
+ * Core: actively create and maintain dramatic tension for engaging narratives
  */
 
 import type { WorldSlice, PersonalAgentState } from '@/domain/world'
 import type { NarrativePattern } from '@/domain/narrative'
 
-export type TensionType = 
-  | 'suspense'       // 悬念
-  | 'surprise'       // 惊奇
-  | 'curiosity'      // 好奇
-  | 'conflict'       // 冲突
-  | 'time_pressure'  // 时间压力
+export type TensionType =
+  | 'suspense'       // suspense
+  | 'surprise'       // surprise
+  | 'curiosity'      // curiosity
+  | 'conflict'       // conflict
+  | 'time_pressure'  // time pressure
 
 export type DramaticTension = {
   id: string
   type: TensionType
-  level: number  // 张力水平 [0-1]
-  source: string  // 张力来源
-  target_agents: string[]  // 受影响的 agents
-  buildup_rate: number  // 累积速度
-  release_condition: string  // 释放条件
-  created_at: number  // 创建时间
-  peak_at?: number  // 高潮时间
-  resolved_at?: number  // 解决时间
+  level: number  // tension level [0-1]
+  source: string  // tension source
+  target_agents: string[]  // affected agents
+  buildup_rate: number  // accumulation speed
+  release_condition: string  // release condition
+  created_at: number  // creation time
+  peak_at?: number  // peak time
+  resolved_at?: number  // resolution time
   status: 'building' | 'peak' | 'released' | 'fading'
 }
 
@@ -38,17 +38,17 @@ export class DramaticTensionSystem {
   private tensions: Map<string, DramaticTension> = new Map()
   private events: TensionEvent[] = []
   private tensionCounter = 0
-  
+
   /**
-   * 检测并创造张力
+   * Detect and create tension
    */
   detectAndCreateTension(
     world: WorldSlice,
     narratives: NarrativePattern[]
   ): DramaticTension[] {
     const newTensions: DramaticTension[] = []
-    
-    // 1. 从冲突叙事创造张力
+
+    // 1. Create tension from conflict narratives
     const conflictNarratives = narratives.filter(n => n.type === 'conflict')
     for (const narrative of conflictNarratives) {
       if (narrative.status === 'developing') {
@@ -56,62 +56,62 @@ export class DramaticTensionSystem {
         newTensions.push(tension)
       }
     }
-    
-    // 2. 从 agent 关系创造张力
+
+    // 2. Create tension from agent relationships
     for (const agent of world.agents.npcs) {
-      // 检测负面关系
+      // Detect negative relationships
       for (const [target, value] of Object.entries(agent.relations)) {
         if (value < -0.7) {
           const tension = this.createRelationshipTension(agent, target, world.tick)
           newTensions.push(tension)
         }
       }
-      
-      // 检测目标冲突
+
+      // Detect goal conflicts
       const conflictingGoals = this.detectGoalConflicts(agent, world.agents.npcs)
       for (const conflict of conflictingGoals) {
         const tension = this.createGoalConflictTension(agent, conflict, world.tick)
         newTensions.push(tension)
       }
     }
-    
-    // 3. 从资源稀缺创造张力
+
+    // 3. Create tension from resource scarcity
     const scarcityTension = this.createScarcityTension(world)
     if (scarcityTension) {
       newTensions.push(scarcityTension)
     }
-    
-    // 4. 创造悬念（随机事件）
+
+    // 4. Create suspense (random events)
     if (Math.random() < 0.1) {
       const suspenseTension = this.createSuspenseTension(world)
       newTensions.push(suspenseTension)
     }
-    
-    // 5. 创造时间压力
-    const urgentNarratives = narratives.filter(n => 
+
+    // 5. Create time pressure
+    const urgentNarratives = narratives.filter(n =>
       n.status === 'climax' || n.intensity > 0.8
     )
     for (const narrative of urgentNarratives) {
       const tension = this.createTimePressureTension(narrative, world.tick)
       newTensions.push(tension)
     }
-    
-    // 添加到系统
+
+    // Add to system
     for (const tension of newTensions) {
       this.tensions.set(tension.id, tension)
       this.events.push({
         tension_id: tension.id,
         tick: world.tick,
         type: 'created',
-        description: `创建了${this.getTensionTypeName(tension.type)}张力`
+        description: `Created ${tension.type} tension`
       })
     }
-    
+
     return newTensions
   }
-  
+
   /**
-   * 创建冲突张力
+   * Create conflict tension
    */
   private createConflictTension(
     narrative: NarrativePattern,
@@ -121,17 +121,17 @@ export class DramaticTensionSystem {
       id: `tension-${this.tensionCounter++}`,
       type: 'conflict',
       level: narrative.intensity * 0.7,
-      source: `叙事冲突: ${narrative.description}`,
+      source: `Narrative conflict: ${narrative.description}`,
       target_agents: narrative.participants,
       buildup_rate: 0.05,
-      release_condition: '冲突解决或一方退出',
+      release_condition: 'Conflict resolved or one party withdraws',
       created_at: currentTick,
       status: 'building'
     }
   }
-  
+
   /**
-   * 创建关系张力
+   * Create relationship tension
    */
   private createRelationshipTension(
     agent: PersonalAgentState,
@@ -142,28 +142,28 @@ export class DramaticTensionSystem {
       id: `tension-${this.tensionCounter++}`,
       type: 'conflict',
       level: 0.6,
-      source: `${agent.identity.name} 与 ${target} 的关系恶化`,
+      source: `Deteriorating relationship between ${agent.identity.name} and ${target}`,
       target_agents: [agent.genetics.seed, target],
       buildup_rate: 0.03,
-      release_condition: '关系改善或爆发冲突',
+      release_condition: 'Relationship improves or conflict erupts',
       created_at: currentTick,
       status: 'building'
     }
   }
-  
+
   /**
-   * 检测目标冲突
+   * Detect goal conflicts
    */
   private detectGoalConflicts(
     agent: PersonalAgentState,
     allAgents: PersonalAgentState[]
   ): Array<{ agent: PersonalAgentState; conflictingGoal: string }> {
     const conflicts: Array<{ agent: PersonalAgentState; conflictingGoal: string }> = []
-    
+
     for (const otherAgent of allAgents) {
       if (otherAgent.genetics.seed === agent.genetics.seed) continue
-      
-      // 检查目标是否冲突
+
+      // Check if goals conflict
       for (const goal of agent.goals) {
         for (const otherGoal of otherAgent.goals) {
           if (this.goalsConflict(goal, otherGoal)) {
@@ -175,28 +175,27 @@ export class DramaticTensionSystem {
         }
       }
     }
-    
+
     return conflicts
   }
-  
+
   /**
-   * 判断目标是否冲突
+   * Determine if goals conflict (language-agnostic)
    */
   private goalsConflict(goal1: string, goal2: string): boolean {
-    // 简化：检查关键词冲突
-    const competitiveKeywords = ['击败', '超越', '获得', '占据', '控制']
-    
-    for (const keyword of competitiveKeywords) {
-      if (goal1.includes(keyword) && goal2.includes(keyword)) {
-        return true
-      }
+    // Language-agnostic: goals conflict if they are similar (potential competition)
+    // Simple heuristic: if goals share significant overlap, they may conflict
+    const words1 = new Set(goal1.toLowerCase().split(/\s+/))
+    const words2 = new Set(goal2.toLowerCase().split(/\s+/))
+    let overlap = 0
+    for (const w of words1) {
+      if (words2.has(w) && w.length > 2) overlap++
     }
-    
-    return false
+    return overlap >= 2
   }
-  
+
   /**
-   * 创建目标冲突张力
+   * Create goal conflict tension
    */
   private createGoalConflictTension(
     agent: PersonalAgentState,
@@ -207,60 +206,60 @@ export class DramaticTensionSystem {
       id: `tension-${this.tensionCounter++}`,
       type: 'conflict',
       level: 0.5,
-      source: `${agent.identity.name} 与 ${conflict.agent.identity.name} 的目标冲突`,
+      source: `Goal conflict between ${agent.identity.name} and ${conflict.agent.identity.name}`,
       target_agents: [agent.genetics.seed, conflict.agent.genetics.seed],
       buildup_rate: 0.04,
-      release_condition: '一方放弃目标或达成妥协',
+      release_condition: 'One party abandons goal or compromise reached',
       created_at: currentTick,
       status: 'building'
     }
   }
-  
+
   /**
-   * 创建稀缺性张力
+   * Create scarcity tension
    */
   private createScarcityTension(world: WorldSlice): DramaticTension | null {
-    // 检查是否有资源压力
+    // Check for resource pressure
     const lowEnergyAgents = world.agents.npcs.filter(a => a.vitals.energy < 0.3)
-    
+
     if (lowEnergyAgents.length > world.agents.npcs.length * 0.3) {
       return {
         id: `tension-${this.tensionCounter++}`,
         type: 'conflict',
         level: 0.7,
-        source: '资源稀缺导致的竞争',
+        source: 'Competition due to resource scarcity',
         target_agents: lowEnergyAgents.map(a => a.genetics.seed),
         buildup_rate: 0.06,
-        release_condition: '资源补充或部分 agents 退出',
+        release_condition: 'Resources replenished or some agents withdraw',
         created_at: world.tick,
         status: 'building'
       }
     }
-    
+
     return null
   }
-  
+
   /**
-   * 创建悬念张力
+   * Create suspense tension
    */
   private createSuspenseTension(world: WorldSlice): DramaticTension {
     const randomAgent = world.agents.npcs[Math.floor(Math.random() * world.agents.npcs.length)]
-    
+
     return {
       id: `tension-${this.tensionCounter++}`,
       type: 'suspense',
       level: 0.4,
-      source: `${randomAgent.identity.name} 的神秘行动`,
+      source: `Mysterious activity of ${randomAgent.identity.name}`,
       target_agents: [randomAgent.genetics.seed],
       buildup_rate: 0.08,
-      release_condition: '真相揭露',
+      release_condition: 'Truth revealed',
       created_at: world.tick,
       status: 'building'
     }
   }
-  
+
   /**
-   * 创建时间压力张力
+   * Create time pressure tension
    */
   private createTimePressureTension(
     narrative: NarrativePattern,
@@ -270,17 +269,17 @@ export class DramaticTensionSystem {
       id: `tension-${this.tensionCounter++}`,
       type: 'time_pressure',
       level: narrative.intensity,
-      source: `${narrative.description} 进入关键时刻`,
+      source: `${narrative.description} reaching critical moment`,
       target_agents: narrative.participants,
       buildup_rate: 0.1,
-      release_condition: '时限到达或提前解决',
+      release_condition: 'Deadline reached or resolved early',
       created_at: currentTick,
       status: 'building'
     }
   }
-  
+
   /**
-   * 累积张力
+   * Build up tension
    */
   buildupTension(
     tensionId: string,
@@ -289,36 +288,36 @@ export class DramaticTensionSystem {
   ): void {
     const tension = this.tensions.get(tensionId)
     if (!tension || tension.status === 'released') return
-    
-    // 累积张力
+
+    // Accumulate tension
     tension.level = Math.min(1, tension.level + tension.buildup_rate)
-    
-    // 检查是否达到高潮
+
+    // Check if peak reached
     if (tension.level >= 0.9 && tension.status === 'building') {
       tension.status = 'peak'
       tension.peak_at = currentTick
-      
+
       this.events.push({
         tension_id: tensionId,
         tick: currentTick,
         type: 'peak',
-        description: `${this.getTensionTypeName(tension.type)}张力达到高潮`
+        description: `${tension.type} tension reached peak`
       })
     }
-    
-    // 记录累积事件
+
+    // Record buildup event
     if (tension.level > 0.5 && Math.random() < 0.2) {
       this.events.push({
         tension_id: tensionId,
         tick: currentTick,
         type: 'buildup',
-        description: `${this.getTensionTypeName(tension.type)}张力持续累积`
+        description: `${tension.type} tension building up`
       })
     }
   }
-  
+
   /**
-   * 释放张力
+   * Release tension
    */
   releaseTension(
     tensionId: string,
@@ -327,21 +326,21 @@ export class DramaticTensionSystem {
   ): void {
     const tension = this.tensions.get(tensionId)
     if (!tension) return
-    
+
     tension.status = 'released'
     tension.resolved_at = currentTick
     tension.level = 0
-    
+
     this.events.push({
       tension_id: tensionId,
       tick: currentTick,
       type: 'released',
-      description: `张力释放: ${resolution}`
+      description: `Tension released: ${resolution}`
     })
   }
-  
+
   /**
-   * 检测张力释放条件
+   * Check tension release conditions
    */
   checkReleaseConditions(
     world: WorldSlice,
@@ -349,82 +348,82 @@ export class DramaticTensionSystem {
   ): void {
     for (const [id, tension] of this.tensions) {
       if (tension.status === 'released') continue
-      
-      // 检查叙事是否已结束
+
+      // Check if narrative has concluded
       if (tension.type === 'conflict') {
         const relatedNarrative = narratives.find(n =>
           n.participants.some(p => tension.target_agents.includes(p))
         )
-        
+
         if (relatedNarrative && relatedNarrative.status === 'concluded') {
-          this.releaseTension(id, '冲突已解决', world.tick)
+          this.releaseTension(id, 'Conflict resolved', world.tick)
         }
       }
-      
-      // 检查关系是否改善
+
+      // Check if relationship improved
       if (tension.target_agents.length === 2) {
         const [agent1Id, agent2Id] = tension.target_agents
         const agent1 = world.agents.npcs.find(a => a.genetics.seed === agent1Id)
-        
+
         if (agent1 && agent1.relations[agent2Id] > 0.5) {
-          this.releaseTension(id, '关系改善', world.tick)
+          this.releaseTension(id, 'Relationship improved', world.tick)
         }
       }
-      
-      // 高潮后自动衰减
+
+      // Auto-decay after peak
       if (tension.status === 'peak' && tension.peak_at) {
         const ticksSincePeak = world.tick - tension.peak_at
         if (ticksSincePeak > 5) {
           tension.status = 'fading'
           tension.level = Math.max(0, tension.level - 0.1)
-          
+
           if (tension.level < 0.1) {
-            this.releaseTension(id, '张力自然消退', world.tick)
+            this.releaseTension(id, 'Tension naturally faded', world.tick)
           }
         }
       }
     }
   }
-  
+
   /**
-   * 计算整体张力
+   * Calculate overall tension
    */
   calculateOverallTension(world: WorldSlice): number {
     const activeTensions = Array.from(this.tensions.values()).filter(
       t => t.status !== 'released'
     )
-    
+
     if (activeTensions.length === 0) return 0
-    
-    // 加权平均
+
+    // Weighted average
     const totalWeight = activeTensions.reduce((sum, t) => {
       const weight = t.status === 'peak' ? 2 : 1
       return sum + t.level * weight
     }, 0)
-    
+
     const totalWeightCount = activeTensions.reduce((sum, t) => {
       return sum + (t.status === 'peak' ? 2 : 1)
     }, 0)
-    
+
     return totalWeight / totalWeightCount
   }
-  
+
   /**
-   * 获取张力节奏
+   * Get tension rhythm
    */
   getTensionRhythm(windowSize: number = 10): Array<{
     tick: number
     tension: number
   }> {
     const rhythm: Array<{ tick: number; tension: number }> = []
-    
-    // 从事件历史计算
+
+    // Calculate from event history
     const recentEvents = this.events.slice(-windowSize)
-    
+
     const tickMap = new Map<number, number>()
     for (const event of recentEvents) {
       const current = tickMap.get(event.tick) || 0
-      
+
       switch (event.type) {
         case 'created':
           tickMap.set(event.tick, current + 0.2)
@@ -440,16 +439,16 @@ export class DramaticTensionSystem {
           break
       }
     }
-    
+
     for (const [tick, tension] of tickMap) {
       rhythm.push({ tick, tension })
     }
-    
+
     return rhythm.sort((a, b) => a.tick - b.tick)
   }
-  
+
   /**
-   * 创建惊奇事件
+   * Create surprise event
    */
   createSurprise(
     world: WorldSlice,
@@ -459,7 +458,7 @@ export class DramaticTensionSystem {
       .sort(() => Math.random() - 0.5)
       .slice(0, 3)
       .map(a => a.genetics.seed)
-    
+
     const tension: DramaticTension = {
       id: `tension-${this.tensionCounter++}`,
       type: 'surprise',
@@ -467,34 +466,34 @@ export class DramaticTensionSystem {
       source: description,
       target_agents: randomAgents,
       buildup_rate: 0,
-      release_condition: '立即释放',
+      release_condition: 'Immediate release',
       created_at: world.tick,
       status: 'peak'
     }
-    
+
     this.tensions.set(tension.id, tension)
-    
+
     this.events.push({
       tension_id: tension.id,
       tick: world.tick,
       type: 'peak',
-      description: `惊奇事件: ${description}`
+      description: `Surprise event: ${description}`
     })
-    
-    // 惊奇事件立即释放
+
+    // Surprise events release immediately
     setTimeout(() => {
-      this.releaseTension(tension.id, '惊奇效果消退', world.tick + 1)
+      this.releaseTension(tension.id, 'Surprise effect faded', world.tick + 1)
     }, 0)
-    
+
     return tension
   }
-  
+
   /**
-   * 获取统计信息
+   * Get statistics
    */
   getStats() {
     const tensions = Array.from(this.tensions.values())
-    
+
     return {
       total_tensions: tensions.length,
       active_tensions: tensions.filter(t => t.status !== 'released').length,
@@ -509,30 +508,16 @@ export class DramaticTensionSystem {
       }
     }
   }
-  
+
   /**
-   * 获取张力类型名称
-   */
-  private getTensionTypeName(type: TensionType): string {
-    const names: Record<TensionType, string> = {
-      suspense: '悬念',
-      surprise: '惊奇',
-      curiosity: '好奇',
-      conflict: '冲突',
-      time_pressure: '时间压力'
-    }
-    return names[type]
-  }
-  
-  /**
-   * 获取所有张力
+   * Get all tensions
    */
   getAllTensions(): Map<string, DramaticTension> {
     return this.tensions
   }
-  
+
   /**
-   * 获取活跃张力
+   * Get active tensions
    */
   getActiveTensions(): DramaticTension[] {
     return Array.from(this.tensions.values()).filter(
@@ -541,7 +526,54 @@ export class DramaticTensionSystem {
   }
 
   /**
-   * 导出快照
+   * Update from LLM feedback (system_feedback.tension_effect)
+   */
+  updateFromLLMFeedback(
+    agentId: string,
+    tensionEffect: 'building' | 'releasing' | 'neutral',
+    currentTick: number
+  ): void {
+    if (tensionEffect === 'neutral') return
+
+    // Find tensions involving this agent
+    const agentTensions = Array.from(this.tensions.values()).filter(
+      t => t.target_agents.includes(agentId) && t.status !== 'released'
+    )
+
+    if (tensionEffect === 'building') {
+      if (agentTensions.length > 0) {
+        // Build up existing tensions
+        for (const tension of agentTensions) {
+          tension.level = Math.min(1, tension.level + 0.05)
+          if (tension.level >= 0.9 && tension.status === 'building') {
+            tension.status = 'peak'
+            tension.peak_at = currentTick
+          }
+        }
+      } else {
+        // Create a new tension
+        const tension: DramaticTension = {
+          id: `tension-${this.tensionCounter++}`,
+          type: 'suspense',
+          level: 0.4,
+          source: `Tension building around agent ${agentId}`,
+          target_agents: [agentId],
+          buildup_rate: 0.05,
+          release_condition: 'Situation resolved',
+          created_at: currentTick,
+          status: 'building',
+        }
+        this.tensions.set(tension.id, tension)
+      }
+    } else if (tensionEffect === 'releasing') {
+      for (const tension of agentTensions) {
+        this.releaseTension(tension.id, 'LLM-reported tension release', currentTick)
+      }
+    }
+  }
+
+  /**
+   * Export snapshot
    */
   toSnapshot(): { tensions: Record<string, DramaticTension>; events: TensionEvent[]; tensionCounter: number } {
     const tensions: Record<string, DramaticTension> = {}
@@ -552,7 +584,7 @@ export class DramaticTensionSystem {
   }
 
   /**
-   * 从快照恢复
+   * Restore from snapshot
    */
   fromSnapshot(snapshot: { tensions: Record<string, DramaticTension>; events: TensionEvent[]; tensionCounter: number }): void {
     this.tensions.clear()

@@ -1,23 +1,23 @@
 /**
- * 模因传播系统
- * 核心：想法、信念、行为模式像病毒一样在 agents 之间传播
+ * Meme Propagation System
+ * Core: ideas, beliefs, and behavior patterns spread like viruses between agents
  */
 
 import type { PersonalAgentState, WorldSlice } from '@/domain/world'
 
 export type Meme = {
   id: string
-  content: string  // 模因内容
+  content: string  // meme content
   category: 'belief' | 'behavior' | 'knowledge' | 'emotion' | 'value'
-  contagiousness: number  // 传染性 [0-1]
-  fidelity: number  // 保真度 [0-1]（传播时的变异程度）
-  longevity: number  // 持久性（在记忆中保持的时间）
-  fitness: number  // 适应性（在环境中的生存能力）
-  carriers: string[]  // 携带者
-  mutations: Meme[]  // 变异体
-  origin: string  // 起源 agent
+  contagiousness: number  // contagiousness [0-1]
+  fidelity: number  // fidelity [0-1] (mutation degree during propagation)
+  longevity: number  // longevity (time retained in memory)
+  fitness: number  // fitness (survival ability in environment)
+  carriers: string[]  // carriers
+  mutations: Meme[]  // mutations
+  origin: string  // origin agent
   created_at: number
-  spread_count: number  // 传播次数
+  spread_count: number  // spread count
 }
 
 export type MemeTransmission = {
@@ -34,9 +34,9 @@ export class MemePropagationSystem {
   private memes: Map<string, Meme> = new Map()
   private transmissions: MemeTransmission[] = []
   private memeCounter = 0
-  
+
   /**
-   * 创建模因
+   * Create a meme
    */
   createMeme(
     content: string,
@@ -58,43 +58,43 @@ export class MemePropagationSystem {
       created_at: currentTick,
       spread_count: 0
     }
-    
+
     this.memes.set(meme.id, meme)
     return meme
   }
-  
+
   /**
-   * 计算传染性
+   * Calculate contagiousness
    */
   private calculateContagiousness(content: string, category: Meme['category']): number {
     let base = 0.5
-    
-    // 情绪类模因更容易传播
+
+    // Emotion memes spread more easily
     if (category === 'emotion') {
       base += 0.2
     }
-    
-    // 信念类模因传播较慢
+
+    // Belief memes spread slower
     if (category === 'belief') {
       base -= 0.1
     }
-    
-    // 简单的内容更容易传播
+
+    // Simpler content spreads more easily
     if (content.length < 20) {
       base += 0.1
     }
-    
-    // 包含强烈词汇的更容易传播
-    const strongWords = ['必须', '绝对', '永远', '从不', '最', '极其']
-    if (strongWords.some(word => content.includes(word))) {
-      base += 0.15
+
+    // Language-agnostic: shorter, more emphatic content spreads faster
+    // Use content length and category as proxies instead of keyword matching
+    if (content.length < 10) {
+      base += 0.15  // Very short, punchy content is more contagious
     }
-    
+
     return Math.min(1, Math.max(0, base))
   }
-  
+
   /**
-   * 传播模因（SIR 模型）
+   * Propagate meme (SIR model)
    */
   propagateMeme(
     meme: Meme,
@@ -103,36 +103,36 @@ export class MemePropagationSystem {
     currentTick: number
   ): MemeTransmission[] {
     const transmissions: MemeTransmission[] = []
-    
-    // 对每个携带者
+
+    // For each carrier
     for (const carrierId of meme.carriers) {
       const contacts = network.get(carrierId) || new Set()
-      
-      // 尝试传播给接触者
+
+      // Attempt to spread to contacts
       for (const contactId of contacts) {
-        // 检查是否已经携带
+        // Check if already a carrier
         if (meme.carriers.includes(contactId)) continue
-        
+
         const contact = agents.find(a => a.genetics.seed === contactId)
         if (!contact) continue
-        
-        // 计算传播概率
+
+        // Calculate transmission probability
         const transmissionProb = this.calculateTransmissionProbability(
           meme,
           agents.find(a => a.genetics.seed === carrierId)!,
           contact
         )
-        
-        // 尝试传播
+
+        // Attempt transmission
         if (Math.random() < transmissionProb) {
-          // 检查是否发生变异
+          // Check if mutation occurs
           const mutationOccurred = Math.random() > meme.fidelity
-          
+
           if (mutationOccurred) {
-            // 创建变异体
+            // Create mutation
             const mutatedMeme = this.mutateMeme(meme, contact, currentTick)
             meme.mutations.push(mutatedMeme)
-            
+
             transmissions.push({
               meme_id: meme.id,
               from_agent: carrierId,
@@ -143,10 +143,10 @@ export class MemePropagationSystem {
               new_meme_id: mutatedMeme.id
             })
           } else {
-            // 成功传播原始模因
+            // Successfully propagated original meme
             meme.carriers.push(contactId)
             meme.spread_count++
-            
+
             transmissions.push({
               meme_id: meme.id,
               from_agent: carrierId,
@@ -168,13 +168,13 @@ export class MemePropagationSystem {
         }
       }
     }
-    
+
     this.transmissions.push(...transmissions)
     return transmissions
   }
-  
+
   /**
-   * 计算传播概率
+   * Calculate transmission probability
    */
   private calculateTransmissionProbability(
     meme: Meme,
@@ -182,57 +182,57 @@ export class MemePropagationSystem {
     receiver: PersonalAgentState
   ): number {
     let prob = meme.contagiousness
-    
-    // 关系越好，传播越容易
+
+    // Better relationship = easier transmission
     const relationship = carrier.relations[receiver.genetics.seed] || 0
     prob += relationship * 0.3
-    
-    // 接收者的开放性影响接受度
+
+    // Receiver's openness affects acceptance
     prob += receiver.persona.openness * 0.2
-    
-    // 情绪状态影响
+
+    // Emotional state influence
     if (meme.category === 'emotion') {
       if (receiver.emotion.intensity > 0.5) {
-        prob += 0.2  // 情绪激动时更容易接受情绪模因
+        prob += 0.2  // Emotionally aroused agents accept emotion memes more easily
       }
     }
-    
-    // 信念模因需要更高的信任
+
+    // Belief memes require higher trust
     if (meme.category === 'belief') {
       if (relationship < 0.5) {
         prob -= 0.3
       }
     }
-    
+
     return Math.min(1, Math.max(0, prob))
   }
-  
+
   /**
-   * 模因变异
+   * Meme mutation
    */
   mutateMeme(
     originalMeme: Meme,
     carrier: PersonalAgentState,
     currentTick: number
   ): Meme {
-    // 基于携带者的个性变异内容
+    // Mutate content based on carrier's personality
     let mutatedContent = originalMeme.content
-    
-    // 高开放性的人可能扩展内容
+
+    // High openness: extend the idea
     if (carrier.persona.openness > 0.7) {
-      mutatedContent = `${mutatedContent}（而且更进一步）`
+      mutatedContent = `${mutatedContent} [extended]`
     }
-    
-    // 低稳定性的人可能夸大内容
+
+    // Low stability: amplify the message
     if (carrier.persona.stability < 0.3) {
-      mutatedContent = mutatedContent.replace('可能', '一定').replace('有时', '总是')
+      mutatedContent = `[amplified] ${mutatedContent}`
     }
-    
-    // 高同理心的人可能软化内容
+
+    // High empathy: soften the message
     if (carrier.persona.empathy > 0.7) {
-      mutatedContent = mutatedContent.replace('必须', '应该').replace('绝对', '可能')
+      mutatedContent = `[softened] ${mutatedContent}`
     }
-    
+
     const mutatedMeme: Meme = {
       id: `meme-${this.memeCounter++}`,
       content: mutatedContent,
@@ -247,73 +247,66 @@ export class MemePropagationSystem {
       created_at: currentTick,
       spread_count: 0
     }
-    
+
     this.memes.set(mutatedMeme.id, mutatedMeme)
     return mutatedMeme
   }
-  
+
   /**
-   * 模因竞争（选择）
+   * Meme competition (selection)
    */
   competeMemes(
     memes: Meme[],
     environment: { stress: number; cooperation: number; conflict: number }
   ): Meme[] {
-    // 计算每个模因的适应度
+    // Calculate fitness for each meme
     for (const meme of memes) {
       meme.fitness = this.calculateFitness(meme, environment)
     }
-    
-    // 选择适应度高的模因
+
+    // Select memes with high fitness
     const survivors = memes.filter(m => {
-      // 基于适应度的生存概率
-      return Math.random() < meme.fitness
+      // Survival probability based on fitness
+      return Math.random() < m.fitness
     })
-    
+
     return survivors
   }
-  
+
   /**
-   * 计算适应度
+   * Calculate fitness
    */
   private calculateFitness(
     meme: Meme,
     environment: { stress: number; cooperation: number; conflict: number }
   ): number {
     let fitness = 0.5
-    
-    // 传播广度影响适应度
+
+    // Spread breadth affects fitness
     fitness += Math.min(0.3, meme.carriers.length / 20)
-    
-    // 环境适应性
+
+    // Category-based fitness (language-agnostic)
     if (meme.category === 'emotion') {
-      if (meme.content.includes('焦虑') || meme.content.includes('恐惧')) {
-        fitness += environment.stress * 0.3
-      }
+      fitness += environment.stress * 0.3
     }
-    
+
     if (meme.category === 'value') {
-      if (meme.content.includes('合作') || meme.content.includes('团结')) {
-        fitness += environment.cooperation * 0.3
-      }
-      if (meme.content.includes('竞争') || meme.content.includes('胜利')) {
-        fitness += environment.conflict * 0.3
-      }
+      fitness += Math.max(environment.cooperation, environment.conflict) * 0.3
     }
-    
-    // 持久性影响适应度
+
+    // Longevity affects fitness
     fitness += meme.longevity / 50
-    
+
     return Math.min(1, Math.max(0, fitness))
   }
-  
+
   /**
-   * 从 agent 记忆中提取模因
+   * Extract memes from agent memory
    */
   extractMemesFromAgent(agent: PersonalAgentState, currentTick: number): Meme[] {
     const newMemes: Meme[] = []
-    
-    // 从核心信念提取
+
+    // Extract from core beliefs
     if (agent.core_belief && !this.memeExists(agent.core_belief)) {
       const meme = this.createMeme(
         agent.core_belief,
@@ -323,8 +316,8 @@ export class MemePropagationSystem {
       )
       newMemes.push(meme)
     }
-    
-    // 从目标提取
+
+    // Extract from goals
     for (const goal of agent.goals) {
       if (!this.memeExists(goal)) {
         const meme = this.createMeme(
@@ -336,17 +329,17 @@ export class MemePropagationSystem {
         newMemes.push(meme)
       }
     }
-    
-    // 从强烈记忆提取
-    const strongMemories = agent.memory_short.filter(m => 
+
+    // Extract from strong memories
+    const strongMemories = agent.memory_short.filter(m =>
       Math.abs(m.emotional_weight) > 0.7
     )
-    
+
     for (const memory of strongMemories.slice(0, 2)) {
       if (!this.memeExists(memory.content)) {
-        const category: Meme['category'] = 
+        const category: Meme['category'] =
           memory.emotional_weight > 0 ? 'emotion' : 'knowledge'
-        
+
         const meme = this.createMeme(
           memory.content,
           category,
@@ -356,21 +349,21 @@ export class MemePropagationSystem {
         newMemes.push(meme)
       }
     }
-    
+
     return newMemes
   }
-  
+
   /**
-   * 检查模因是否已存在
+   * Check if meme already exists
    */
   private memeExists(content: string): boolean {
-    return Array.from(this.memes.values()).some(m => 
+    return Array.from(this.memes.values()).some(m =>
       m.content === content || m.content.includes(content.slice(0, 20))
     )
   }
-  
+
   /**
-   * 应用模因到 agent
+   * Apply meme to agent
    */
   applyMemeToAgent(
     meme: Meme,
@@ -378,46 +371,34 @@ export class MemePropagationSystem {
     currentTick: number
   ): PersonalAgentState {
     const updatedAgent = { ...agent }
-    
-    // 根据模因类型应用影响
+
+    // Apply influence based on meme category
     switch (meme.category) {
       case 'belief':
-        // 影响核心信念
+        // Influence core belief
         if (!updatedAgent.core_belief || Math.random() < 0.3) {
           updatedAgent.core_belief = meme.content
         }
         break
-        
+
       case 'value':
-        // 添加到目标
+        // Add to goals
         if (!updatedAgent.goals.includes(meme.content)) {
           updatedAgent.goals.push(meme.content)
         }
         break
-        
+
       case 'emotion':
-        // 影响情绪
-        const emotionKeywords: Record<string, string> = {
-          '快乐': 'joyful',
-          '悲伤': 'sad',
-          '愤怒': 'angry',
-          '焦虑': 'anxious',
-          '兴奋': 'excited'
-        }
-        
-        for (const [keyword, emotion] of Object.entries(emotionKeywords)) {
-          if (meme.content.includes(keyword)) {
-            updatedAgent.emotion = {
-              label: emotion,
-              intensity: 0.6
-            }
-            break
-          }
+        // Emotion memes influence the agent's emotional state
+        // The meme content itself describes the emotion (in whatever language)
+        updatedAgent.emotion = {
+          label: 'influenced',
+          intensity: 0.6
         }
         break
-        
+
       case 'knowledge':
-        // 添加到记忆
+        // Add to memory
         updatedAgent.memory_short.push({
           id: `mem-meme-${currentTick}`,
           content: meme.content,
@@ -430,51 +411,51 @@ export class MemePropagationSystem {
         })
         break
     }
-    
+
     return updatedAgent
   }
-  
+
   /**
-   * 模因衰减
+   * Meme decay
    */
   decayMemes(currentTick: number): void {
     for (const [id, meme] of this.memes) {
       const age = currentTick - meme.created_at
-      
-      // 超过寿命的模因可能消失
+
+      // Memes past their longevity may disappear
       if (age > meme.longevity) {
-        // 从部分携带者中移除
+        // Remove from some carriers
         const removalRate = 0.2
         const carriersToRemove = Math.floor(meme.carriers.length * removalRate)
-        
+
         for (let i = 0; i < carriersToRemove; i++) {
           const randomIndex = Math.floor(Math.random() * meme.carriers.length)
           meme.carriers.splice(randomIndex, 1)
         }
-        
-        // 如果没有携带者了，删除模因
+
+        // Delete meme if no carriers remain
         if (meme.carriers.length === 0) {
           this.memes.delete(id)
         }
       }
     }
   }
-  
+
   /**
-   * 获取最流行的模因
+   * Get most popular memes
    */
   getMostPopularMemes(count: number = 10): Meme[] {
     return Array.from(this.memes.values())
       .sort((a, b) => b.carriers.length - a.carriers.length)
       .slice(0, count)
   }
-  
+
   /**
-   * 获取统计信息
+   * Get statistics
    */
   getStats() {
     const memes = Array.from(this.memes.values())
-    
+
     return {
       total_memes: memes.length,
       total_transmissions: this.transmissions.length,
@@ -491,16 +472,16 @@ export class MemePropagationSystem {
       }
     }
   }
-  
+
   /**
-   * 获取所有模因
+   * Get all memes
    */
   getAllMemes(): Map<string, Meme> {
     return this.memes
   }
-  
+
   /**
-   * 获取 agent 携带的模因
+   * Get memes carried by an agent
    */
   getAgentMemes(agentId: string): Meme[] {
     return Array.from(this.memes.values()).filter(m =>
@@ -509,7 +490,33 @@ export class MemePropagationSystem {
   }
 
   /**
-   * 导出快照
+   * Ingest meme from LLM feedback (system_feedback.meme_spread)
+   */
+  ingestFromLLMFeedback(
+    agentId: string,
+    memeSpread: { content: string; category: Meme['category'] },
+    currentTick: number
+  ): void {
+    // Check if this meme already exists
+    if (this.memeExists(memeSpread.content)) {
+      // Add agent as carrier of existing similar meme
+      for (const meme of this.memes.values()) {
+        if (meme.content === memeSpread.content || meme.content.includes(memeSpread.content.slice(0, 20))) {
+          if (!meme.carriers.includes(agentId)) {
+            meme.carriers.push(agentId)
+            meme.spread_count++
+          }
+          return
+        }
+      }
+    }
+
+    // Create new meme
+    this.createMeme(memeSpread.content, memeSpread.category, agentId, currentTick)
+  }
+
+  /**
+   * Export snapshot
    */
   toSnapshot(): { memes: Record<string, Meme>; transmissions: MemeTransmission[]; memeCounter: number } {
     const memes: Record<string, Meme> = {}
@@ -520,7 +527,7 @@ export class MemePropagationSystem {
   }
 
   /**
-   * 从快照恢复
+   * Restore from snapshot
    */
   fromSnapshot(snapshot: { memes: Record<string, Meme>; transmissions: MemeTransmission[]; memeCounter: number }): void {
     this.memes.clear()

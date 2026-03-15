@@ -1,23 +1,23 @@
 /**
- * 声誉系统 - 产生最丰富的社会动态
- * 核心：行为影响声誉，声誉影响他人对待方式
+ * Reputation system - produces the richest social dynamics
+ * Core: actions affect reputation, reputation affects how others treat you
  */
 
 import type { PersonalAgentState, WorldSlice } from '@/domain/world'
 
 export type ReputationDimension = {
-  trustworthiness: number  // 可信度 [0-1]
-  competence: number       // 能力 [0-1]
-  benevolence: number      // 善意 [0-1]
-  status: number           // 地位 [0-1]
-  influence: number        // 影响力 [0-1]
+  trustworthiness: number  // trustworthiness [0-1]
+  competence: number       // competence [0-1]
+  benevolence: number      // benevolence [0-1]
+  status: number           // status [0-1]
+  influence: number        // influence [0-1]
 }
 
 export type ReputationEvent = {
   tick: number
   action_type: string
   impact: Partial<ReputationDimension>
-  witnesses: string[]  // 见证者
+  witnesses: string[]  // witnesses
   description: string
 }
 
@@ -25,22 +25,22 @@ export type Reputation = ReputationDimension & {
   agent_id: string
   history: ReputationEvent[]
   last_updated: number
-  decay_rate: number  // 衰减率
+  decay_rate: number  // decay rate
 }
 
 export type ReputationQuery = {
-  observer_id: string  // 观察者
-  target_id: string    // 目标
-  perspective: Reputation  // 观察者视角的声誉
-  confidence: number   // 信心水平
+  observer_id: string  // observer
+  target_id: string    // target
+  perspective: Reputation  // reputation from observer's perspective
+  confidence: number   // confidence level
 }
 
 export class ReputationSystem {
   private reputations: Map<string, Reputation> = new Map()
-  private socialNetwork: Map<string, Set<string>> = new Map()  // 社交网络图
+  private socialNetwork: Map<string, Set<string>> = new Map()  // social network graph
   
   /**
-   * 初始化 agent 的声誉
+   * Initialize agent reputation
    */
   initializeReputation(agent: PersonalAgentState): Reputation {
     const reputation: Reputation = {
@@ -60,7 +60,7 @@ export class ReputationSystem {
   }
   
   /**
-   * 更新声誉（基于行动）
+   * Update reputation (based on action)
    */
   updateReputation(
     agent: PersonalAgentState,
@@ -77,10 +77,10 @@ export class ReputationSystem {
       reputation = this.initializeReputation(agent)
     }
     
-    // 根据行动类型计算声誉影响
+    // Calculate reputation impact based on action type
     const impact = this.calculateReputationImpact(action, agent)
     
-    // 应用影响
+    // Apply impact
     reputation.trustworthiness = this.clamp(
       reputation.trustworthiness + (impact.trustworthiness || 0)
     )
@@ -97,7 +97,7 @@ export class ReputationSystem {
       reputation.influence + (impact.influence || 0)
     )
     
-    // 记录事件
+    // Record event
     const event: ReputationEvent = {
       tick: currentTick,
       action_type: action.type,
@@ -109,14 +109,14 @@ export class ReputationSystem {
     reputation.history.push(event)
     reputation.last_updated = currentTick
     
-    // 传播声誉（通过见证者）
+    // Propagate reputation (through witnesses)
     this.propagateReputation(agent.genetics.seed, event, action.witnesses)
     
     return reputation
   }
   
   /**
-   * 计算行动对声誉的影响
+   * Calculate action's impact on reputation
    */
   private calculateReputationImpact(
     action: { type: string; target?: string; success: boolean },
@@ -176,7 +176,7 @@ export class ReputationSystem {
         break
         
       default:
-        // 默认小幅影响
+        // Default minor impact
         impact.trustworthiness = action.success ? 0.01 : -0.01
     }
     
@@ -184,27 +184,26 @@ export class ReputationSystem {
   }
   
   /**
-   * 传播声誉（通过社交网络）
+   * Propagate reputation (through social network)
    */
   private propagateReputation(
     agentId: string,
     event: ReputationEvent,
     witnesses: string[]
   ): void {
-    // 见证者会传播给他们的朋友
+    // Witnesses propagate to their friends
     for (const witness of witnesses) {
       const friends = this.socialNetwork.get(witness) || new Set()
       
-      // 传播给朋友（衰减）
+      // Propagate to friends (with decay)
       for (const friend of friends) {
-        // 简化：直接记录，实际应该有传播衰减
-        // 这里可以扩展为"听说"的二手信息
+        // Simplified: record directly, could extend to second-hand "hearsay" info
       }
     }
   }
   
   /**
-   * 查询声誉（从观察者视角）
+   * Query reputation (from observer's perspective)
    */
   queryReputation(
     observerId: string,
@@ -214,7 +213,7 @@ export class ReputationSystem {
     const baseReputation = this.reputations.get(targetId)
     
     if (!baseReputation) {
-      // 没有声誉信息，返回默认值
+      // No reputation info, return defaults
       return {
         observer_id: observerId,
         target_id: targetId,
@@ -229,11 +228,11 @@ export class ReputationSystem {
           last_updated: 0,
           decay_rate: 0.01
         },
-        confidence: 0.1  // 低信心
+        confidence: 0.1  // low confidence
       }
     }
     
-    // 计算观察者的视角
+    // Calculate observer's perspective
     const perspective = this.calculatePerspective(
       observerId,
       targetId,
@@ -241,7 +240,7 @@ export class ReputationSystem {
       world
     )
     
-    // 计算信心水平
+    // Calculate confidence level
     const confidence = this.calculateConfidence(observerId, targetId, baseReputation)
     
     return {
@@ -253,7 +252,7 @@ export class ReputationSystem {
   }
   
   /**
-   * 计算观察者视角的声誉
+   * Calculate reputation from observer's perspective
    */
   private calculatePerspective(
     observerId: string,
@@ -261,20 +260,20 @@ export class ReputationSystem {
     baseReputation: Reputation,
     world: WorldSlice
   ): Reputation {
-    // 基础声誉
+    // Base reputation
     const perspective = { ...baseReputation }
     
-    // 根据观察者与目标的关系调整
+    // Adjust based on observer-target relationship
     const observer = world.agents.npcs.find(a => a.genetics.seed === observerId)
     if (observer) {
       const relationship = observer.relations[targetId] || 0
       
-      // 关系好的人会高估对方的声誉
+      // Good relationship overestimates reputation
       if (relationship > 0.5) {
         perspective.trustworthiness = Math.min(1, perspective.trustworthiness + 0.1)
         perspective.benevolence = Math.min(1, perspective.benevolence + 0.1)
       } else if (relationship < -0.5) {
-        // 关系差的人会低估对方的声誉
+        // Bad relationship underestimates reputation
         perspective.trustworthiness = Math.max(0, perspective.trustworthiness - 0.1)
         perspective.benevolence = Math.max(0, perspective.benevolence - 0.1)
       }
@@ -284,18 +283,18 @@ export class ReputationSystem {
   }
   
   /**
-   * 计算信心水平
+   * Calculate confidence level
    */
   private calculateConfidence(
     observerId: string,
     targetId: string,
     reputation: Reputation
   ): number {
-    // 基于历史事件数量
+    // Based on number of historical events
     const eventCount = reputation.history.length
     let confidence = Math.min(1, eventCount / 20)
     
-    // 基于是否是直接见证者
+    // Based on whether observer is a direct witness
     const directWitness = reputation.history.some(event =>
       event.witnesses.includes(observerId)
     )
@@ -304,7 +303,7 @@ export class ReputationSystem {
       confidence = Math.min(1, confidence + 0.3)
     }
     
-    // 基于时间衰减
+    // Based on time decay
     const ticksSinceUpdate = Date.now() - reputation.last_updated
     const timeFactor = Math.exp(-ticksSinceUpdate / 1000)
     confidence *= timeFactor
@@ -313,14 +312,14 @@ export class ReputationSystem {
   }
   
   /**
-   * 声誉衰减（随时间）
+   * Reputation decay (over time)
    */
   applyDecay(currentTick: number): void {
     for (const [agentId, reputation] of this.reputations) {
       const ticksSinceUpdate = currentTick - reputation.last_updated
       
       if (ticksSinceUpdate > 10) {
-        // 向中性值衰减
+        // Decay towards neutral value
         reputation.trustworthiness = this.decayTowards(reputation.trustworthiness, 0.5, reputation.decay_rate)
         reputation.competence = this.decayTowards(reputation.competence, 0.5, reputation.decay_rate)
         reputation.benevolence = this.decayTowards(reputation.benevolence, 0.5, reputation.decay_rate)
@@ -331,14 +330,14 @@ export class ReputationSystem {
   }
   
   /**
-   * 向目标值衰减
+   * Decay towards target value
    */
   private decayTowards(current: number, target: number, rate: number): number {
     return current + (target - current) * rate
   }
   
   /**
-   * 更新社交网络
+   * Update social network
    */
   updateSocialNetwork(world: WorldSlice): void {
     this.socialNetwork.clear()
@@ -346,7 +345,7 @@ export class ReputationSystem {
     for (const agent of world.agents.npcs) {
       const friends = new Set<string>()
       
-      // 关系值 > 0.3 视为朋友
+      // Relationship > 0.3 counts as friend
       for (const [target, value] of Object.entries(agent.relations)) {
         if (value > 0.3) {
           friends.add(target)
@@ -358,7 +357,7 @@ export class ReputationSystem {
   }
   
   /**
-   * 获取声誉排名
+   * Get reputation ranking
    */
   getReputationRanking(dimension: keyof ReputationDimension): Array<{
     agent_id: string
@@ -373,7 +372,7 @@ export class ReputationSystem {
   }
   
   /**
-   * 获取统计信息
+   * Get statistics
    */
   getStats() {
     const reputations = Array.from(this.reputations.values())
@@ -389,7 +388,7 @@ export class ReputationSystem {
     }
   }
   
-  // 辅助方法
+  // Helper methods
   private clamp(value: number, min: number = 0, max: number = 1): number {
     return Math.max(min, Math.min(max, value))
   }
@@ -404,37 +403,96 @@ export class ReputationSystem {
     agent: PersonalAgentState
   ): string {
     const name = agent.identity.name
-    const result = action.success ? '成功' : '失败'
-    
+    const result = action.success ? 'success' : 'failure'
+
     switch (action.type) {
       case 'help':
-        return `${name}帮助了${action.target || '他人'}（${result}）`
+        return `${name} helped ${action.target || 'others'} (${result})`
       case 'compete':
-        return `${name}与${action.target || '他人'}竞争（${result}）`
+        return `${name} competed with ${action.target || 'others'} (${result})`
       case 'betray':
-        return `${name}背叛了${action.target || '他人'}`
+        return `${name} betrayed ${action.target || 'others'}`
       case 'cooperate':
-        return `${name}与${action.target || '他人'}合作（${result}）`
+        return `${name} cooperated with ${action.target || 'others'} (${result})`
       case 'lead':
-        return `${name}领导了一项行动（${result}）`
+        return `${name} led an action (${result})`
       case 'teach':
-        return `${name}教导了${action.target || '他人'}`
+        return `${name} taught ${action.target || 'others'}`
       case 'deceive':
-        return `${name}欺骗了${action.target || '他人'}`
+        return `${name} deceived ${action.target || 'others'}`
       default:
-        return `${name}执行了${action.type}（${result}）`
+        return `${name} performed ${action.type} (${result})`
     }
   }
   
   /**
-   * 获取所有声誉
+   * Get all reputations
    */
   getAllReputations(): Map<string, Reputation> {
     return this.reputations
   }
 
   /**
-   * 导出快照（JSON 可序列化）
+   * Get overall influence score for an agent (used by other systems)
+   */
+  getInfluence(agentId: string): number {
+    const rep = this.reputations.get(agentId)
+    if (!rep) return 0
+    return rep.influence
+  }
+
+  /**
+   * Update reputation from LLM feedback (system_feedback.reputation_impact)
+   */
+  updateFromLLMFeedback(
+    agentId: string,
+    impacts: { dimension: string; delta: number; reason: string }[],
+    witnesses: string[],
+    currentTick: number
+  ): void {
+    let reputation = this.reputations.get(agentId)
+    if (!reputation) {
+      reputation = {
+        agent_id: agentId,
+        trustworthiness: 0.5,
+        competence: 0.5,
+        benevolence: 0.5,
+        status: 0.3,
+        influence: 0.2,
+        history: [],
+        last_updated: 0,
+        decay_rate: 0.01,
+      }
+      this.reputations.set(agentId, reputation)
+    }
+
+    const impact: Partial<ReputationDimension> = {}
+    const reasons: string[] = []
+
+    for (const { dimension, delta, reason } of impacts) {
+      const safeDelta = this.clamp(delta, -0.15, 0.15)
+      const dim = dimension as keyof ReputationDimension
+      if (dim in reputation && typeof reputation[dim] === 'number') {
+        reputation[dim] = this.clamp(reputation[dim] + safeDelta)
+        impact[dim] = safeDelta
+        if (reason) reasons.push(reason)
+      }
+    }
+
+    reputation.history.push({
+      tick: currentTick,
+      action_type: 'llm_feedback',
+      impact,
+      witnesses,
+      description: reasons.join('; ') || 'LLM-reported reputation change',
+    })
+    reputation.last_updated = currentTick
+
+    this.propagateReputation(agentId, reputation.history[reputation.history.length - 1], witnesses)
+  }
+
+  /**
+   * Export snapshot (JSON serializable)
    */
   toSnapshot(): { reputations: Record<string, Reputation>; socialNetwork: Record<string, string[]> } {
     const reputations: Record<string, Reputation> = {}
@@ -449,7 +507,7 @@ export class ReputationSystem {
   }
 
   /**
-   * 从快照恢复
+   * Restore from snapshot
    */
   fromSnapshot(snapshot: { reputations: Record<string, Reputation>; socialNetwork: Record<string, string[]> }): void {
     this.reputations.clear()

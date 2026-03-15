@@ -1,6 +1,6 @@
 /**
- * 叙事影响系统 - 让叙事影响 agents 的决策和行为
- * 核心：形成正反馈循环 - 叙事 → 影响 → 行为 → 事件 → 叙事
+ * Narrative influence system - lets narratives influence agents' decisions and behavior
+ * Core: forms positive feedback loop - narrative -> influence -> behavior -> event -> narrative
  */
 
 import type { PersonalAgentState, MemoryRecord, WorldSlice } from '@/domain/world'
@@ -8,14 +8,14 @@ import type { NarrativePattern, NarrativeRole } from '@/domain/narrative'
 
 export class NarrativeInfluenceSystem {
   /**
-   * 应用叙事影响到 agent
+   * Apply narrative influence to agent
    */
   applyNarrativeInfluence(
     agent: PersonalAgentState,
     narratives: NarrativePattern[],
     world: WorldSlice
   ): PersonalAgentState {
-    // 1. 找到 agent 参与的叙事
+    // 1. Find narratives the agent participates in
     const participatingNarratives = narratives.filter(n =>
       n.participants.includes(agent.genetics.seed)
     )
@@ -24,20 +24,20 @@ export class NarrativeInfluenceSystem {
       return agent
     }
     
-    // 2. 更新 agent 的叙事角色
+    // 2. Update agent's narrative roles
     const narrative_roles = this.updateNarrativeRoles(agent, participatingNarratives)
     
-    // 3. 生成叙事相关的记忆
+    // 3. Generate narrative-related memories
     const narrativeMemories = this.generateNarrativeMemories(
       agent,
       participatingNarratives,
       world.tick
     )
     
-    // 4. 调整情感状态
+    // 4. Adjust emotional state
     const emotion = this.adjustEmotionByNarrative(agent, participatingNarratives)
     
-    // 5. 影响目标
+    // 5. Influence goals
     const goals = this.influenceGoals(agent, participatingNarratives)
     
     return {
@@ -50,7 +50,7 @@ export class NarrativeInfluenceSystem {
   }
   
   /**
-   * 更新 agent 的叙事角色
+   * Update agent's narrative roles
    */
   private updateNarrativeRoles(
     agent: PersonalAgentState,
@@ -70,7 +70,7 @@ export class NarrativeInfluenceSystem {
   }
   
   /**
-   * 确定 agent 在叙事中的角色
+   * Determine agent's role in narrative
    */
   private determineRole(
     agent: PersonalAgentState,
@@ -78,32 +78,32 @@ export class NarrativeInfluenceSystem {
   ): NarrativeRole['role'] {
     const agentId = agent.genetics.seed
     
-    // 检查是否是主要参与者（前两名）
+    // Check if primary participant (top two)
     const participantIndex = narrative.participants.indexOf(agentId)
     
     if (participantIndex === 0) {
-      // 第一个参与者通常是主角
+      // First participant is usually the protagonist
       return 'protagonist'
     } else if (participantIndex === 1 && narrative.type === 'conflict') {
-      // 冲突中的第二个参与者是对手
+      // Second participant in conflict is the antagonist
       return 'antagonist'
     } else if (participantIndex === 1 && narrative.type === 'alliance') {
-      // 联盟中的第二个参与者也是主角
+      // Second participant in alliance is also protagonist
       return 'protagonist'
     } else if (narrative.catalyst === narrative.event_ids[0]) {
-      // 触发事件的参与者是催化剂
+      // Participant who triggered the event is the catalyst
       return 'catalyst'
     } else if (participantIndex > 1) {
-      // 其他参与者是配角
+      // Other participants are supporting
       return 'supporting'
     } else {
-      // 默认是观察者
+      // Default is observer
       return 'observer'
     }
   }
   
   /**
-   * 计算参与度
+   * Calculate involvement
    */
   private calculateInvolvement(
     agent: PersonalAgentState,
@@ -111,28 +111,28 @@ export class NarrativeInfluenceSystem {
   ): number {
     const agentId = agent.genetics.seed
     
-    // 统计 agent 在叙事事件中的出现次数
+    // Count agent's appearances in narrative events
     const totalEvents = narrative.event_ids.length
-    // 简化：假设每个事件都涉及所有参与者
+    // Simplified: assume each event involves all participants
     const agentEvents = totalEvents
     
     return Math.min(1, agentEvents / Math.max(1, totalEvents))
   }
   
   /**
-   * 计算影响力
+   * Calculate impact
    */
   private calculateImpact(
     agent: PersonalAgentState,
     narrative: NarrativePattern
   ): number {
-    // 影响力基于叙事强度和 agent 的参与度
+    // Impact based on narrative intensity and agent involvement
     const involvement = this.calculateInvolvement(agent, narrative)
     return narrative.intensity * involvement
   }
   
   /**
-   * 生成叙事相关的记忆
+   * Generate narrative-related memories
    */
   generateNarrativeMemories(
     agent: PersonalAgentState,
@@ -142,7 +142,7 @@ export class NarrativeInfluenceSystem {
     const memories: MemoryRecord[] = []
     
     for (const narrative of narratives) {
-      // 只为活跃的叙事生成记忆
+      // Only generate memories for active narratives
       if (narrative.status !== 'developing' && narrative.status !== 'climax') {
         continue
       }
@@ -150,7 +150,7 @@ export class NarrativeInfluenceSystem {
       const role = this.determineRole(agent, narrative)
       const impact = this.calculateImpact(agent, narrative)
       
-      // 生成记忆内容
+      // Generate memory content
       const content = this.generateMemoryContent(agent, narrative, role)
       
       const memory: MemoryRecord = {
@@ -160,7 +160,7 @@ export class NarrativeInfluenceSystem {
         emotional_weight: narrative.sentiment,
         source: 'social',
         timestamp: new Date().toISOString(),
-        decay_rate: 0.02, // 叙事记忆衰减较慢
+        decay_rate: 0.02, // narrative memories decay slower
         retrieval_strength: impact
       }
       
@@ -171,7 +171,7 @@ export class NarrativeInfluenceSystem {
   }
   
   /**
-   * 生成记忆内容
+   * Generate memory content
    */
   private generateMemoryContent(
     agent: PersonalAgentState,
@@ -179,58 +179,58 @@ export class NarrativeInfluenceSystem {
     role: NarrativeRole['role']
   ): string {
     const narrativeTypeNames: Record<string, string> = {
-      conflict: '冲突',
-      alliance: '联盟',
-      romance: '浪漫关系',
-      betrayal: '背叛',
-      discovery: '发现',
-      transformation: '转变',
-      quest: '探索',
-      mystery: '谜团',
-      tragedy: '悲剧',
-      triumph: '胜利'
+      conflict: 'conflict',
+      alliance: 'alliance',
+      romance: 'romance',
+      betrayal: 'betrayal',
+      discovery: 'discovery',
+      transformation: 'transformation',
+      quest: 'quest',
+      mystery: 'mystery',
+      tragedy: 'tragedy',
+      triumph: 'triumph'
     }
-    
+
     const roleDescriptions: Record<string, string> = {
-      protagonist: '我是主角',
-      antagonist: '我是对手',
-      supporting: '我在旁协助',
-      observer: '我在观察',
-      catalyst: '我触发了这一切'
+      protagonist: 'I am the protagonist',
+      antagonist: 'I am the antagonist',
+      supporting: 'I am supporting',
+      observer: 'I am observing',
+      catalyst: 'I triggered this'
     }
-    
-    const typeName = narrativeTypeNames[narrative.type] || '事件'
-    const roleDesc = roleDescriptions[role] || '我参与了'
+
+    const typeName = narrativeTypeNames[narrative.type] || 'event'
+    const roleDesc = roleDescriptions[role] || 'I participated'
     const otherParticipants = narrative.participants.filter(p => p !== agent.genetics.seed)
-    
-    let content = `${roleDesc}，正在经历一场${typeName}`
-    
+
+    let content = `${roleDesc}, experiencing a ${typeName}`
+
     if (otherParticipants.length > 0) {
-      content += `，涉及 ${otherParticipants.slice(0, 2).join('、')}`
+      content += `, involving ${otherParticipants.slice(0, 2).join(', ')}`
       if (otherParticipants.length > 2) {
-        content += ` 等 ${otherParticipants.length} 人`
+        content += ` and ${otherParticipants.length} others`
       }
     }
-    
-    // 根据叙事状态添加描述
+
+    // Add description based on narrative status
     if (narrative.status === 'climax') {
-      content += '。事态已经到了关键时刻'
+      content += '. Things have reached a critical moment'
     } else if (narrative.status === 'developing') {
-      content += '。事情还在发展中'
+      content += '. Things are still developing'
     }
-    
-    // 根据情感添加描述
+
+    // Add description based on sentiment
     if (narrative.sentiment > 0.5) {
-      content += '，感觉还不错'
+      content += ', feeling positive'
     } else if (narrative.sentiment < -0.5) {
-      content += '，让我感到不安'
+      content += ', making me uneasy'
     }
-    
+
     return content
   }
   
   /**
-   * 根据叙事调整情感
+   * Adjust emotion based on narrative
    */
   private adjustEmotionByNarrative(
     agent: PersonalAgentState,
@@ -240,7 +240,7 @@ export class NarrativeInfluenceSystem {
       return agent.emotion
     }
     
-    // 计算所有叙事的平均情感和强度
+    // Calculate average sentiment and intensity across all narratives
     let totalSentiment = 0
     let totalIntensity = 0
     
@@ -253,7 +253,7 @@ export class NarrativeInfluenceSystem {
     const avgSentiment = totalSentiment / narratives.length
     const avgIntensity = totalIntensity / narratives.length
     
-    // 根据情感选择标签
+    // Choose label based on sentiment
     let label = agent.emotion.label
     
     if (avgIntensity > 0.7) {
@@ -281,47 +281,47 @@ export class NarrativeInfluenceSystem {
   }
   
   /**
-   * 影响 agent 的目标
+   * Influence agent's goals
    */
   private influenceGoals(
     agent: PersonalAgentState,
     narratives: NarrativePattern[]
   ): string[] {
     const goals = [...agent.goals]
-    
+
     for (const narrative of narratives) {
       const role = this.determineRole(agent, narrative)
-      
-      // 根据叙事类型和角色添加目标
+
+      // Add goals based on narrative type and role
       if (narrative.type === 'conflict' && role === 'protagonist') {
-        const conflictGoal = `解决与 ${narrative.participants[1] || '对手'} 的冲突`
+        const conflictGoal = `Resolve conflict with ${narrative.participants[1] || 'opponent'}`
         if (!goals.includes(conflictGoal)) {
           goals.push(conflictGoal)
         }
       } else if (narrative.type === 'alliance' && role === 'protagonist') {
-        const allianceGoal = `维护与 ${narrative.participants[1] || '盟友'} 的联盟`
+        const allianceGoal = `Maintain alliance with ${narrative.participants[1] || 'ally'}`
         if (!goals.includes(allianceGoal)) {
           goals.push(allianceGoal)
         }
       } else if (narrative.type === 'quest' && role === 'protagonist') {
-        const questGoal = `完成探索任务`
+        const questGoal = `Complete the quest`
         if (!goals.includes(questGoal)) {
           goals.push(questGoal)
         }
       } else if (narrative.type === 'transformation' && role === 'protagonist') {
-        const transformGoal = `完成自我转变`
+        const transformGoal = `Complete self-transformation`
         if (!goals.includes(transformGoal)) {
           goals.push(transformGoal)
         }
       }
     }
-    
-    // 限制目标数量
+
+    // Limit number of goals
     return goals.slice(-5)
   }
   
   /**
-   * 计算叙事对 agent 的总体影响
+   * Calculate narrative's overall impact on agent
    */
   calculateNarrativeImpact(
     agent: PersonalAgentState,
@@ -335,7 +335,7 @@ export class NarrativeInfluenceSystem {
   }
   
   /**
-   * 获取 agent 最关注的叙事
+   * Get agent's most influential narrative
    */
   getMostInfluentialNarrative(
     agent: PersonalAgentState,
@@ -349,7 +349,7 @@ export class NarrativeInfluenceSystem {
       return null
     }
     
-    // 按影响力排序
+    // Sort by impact
     const sorted = participatingNarratives.sort((a, b) => {
       const impactA = this.calculateNarrativeImpact(agent, a)
       const impactB = this.calculateNarrativeImpact(agent, b)

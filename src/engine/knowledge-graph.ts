@@ -1,6 +1,6 @@
 /**
- * 知识图谱系统 - 构建世界的实体关系网络
- * 参考 MiroFish 的 GraphRAG 设计
+ * Knowledge graph system — builds entity-relationship network for the world
+ * Inspired by GraphRAG design patterns
  */
 
 import type { PersonalAgentState, WorldSlice } from '@/domain/world'
@@ -12,54 +12,54 @@ export type KnowledgeNode = {
   type: NodeType
   label: string
   properties: Record<string, any>
-  embedding?: number[]  // 用于语义搜索（未来可接入 OpenAI Embeddings）
+  embedding?: number[]  // for semantic search (future: plug in embeddings API)
   created_at: number  // tick
   updated_at: number  // tick
 }
 
 export type RelationType = 
-  | 'knows'           // agent 认识 agent
-  | 'likes'           // agent 喜欢 agent
-  | 'dislikes'        // agent 不喜欢 agent
-  | 'works_for'       // agent 为 organization 工作
-  | 'located_in'      // agent/organization 位于 location
-  | 'participates_in' // agent 参与 plot/event
-  | 'caused_by'       // event 由 agent 引起
-  | 'related_to'      // 通用关系
-  | 'protagonist_of'  // agent 是 plot 的主角
-  | 'antagonist_of'   // agent 是 plot 的对手
-  | 'supports'        // agent 支持 plot
+  | 'knows'           // agent knows agent
+  | 'likes'           // agent likes agent
+  | 'dislikes'        // agent dislikes agent
+  | 'works_for'       // agent works for organization
+  | 'located_in'      // agent/organization located in location
+  | 'participates_in' // agent participates in plot/event
+  | 'caused_by'       // event caused by agent
+  | 'related_to'      // generic relation
+  | 'protagonist_of'  // agent is protagonist of plot
+  | 'antagonist_of'   // agent is antagonist of plot
+  | 'supports'        // agent supports plot
 
 export type KnowledgeEdge = {
   id: string
   source: string  // node id
   target: string  // node id
   relation: RelationType
-  weight: number  // 关系强度 [0-1]
+  weight: number  // relation strength [0-1]
   properties: Record<string, any>
   created_at: number  // tick
   updated_at: number  // tick
 }
 
 /**
- * 知识图谱类
+ * Knowledge graph class
  */
 export class KnowledgeGraph {
   private nodes: Map<string, KnowledgeNode> = new Map()
   private edges: Map<string, KnowledgeEdge> = new Map()
   
-  // 索引：加速查询
+  // Indexes for fast queries
   private nodesByType: Map<NodeType, Set<string>> = new Map()
   private edgesBySource: Map<string, Set<string>> = new Map()
   private edgesByTarget: Map<string, Set<string>> = new Map()
 
   /**
-   * 添加节点
+   * Add node
    */
   addNode(node: KnowledgeNode): void {
     this.nodes.set(node.id, node)
     
-    // 更新类型索引
+    // Update type index
     if (!this.nodesByType.has(node.type)) {
       this.nodesByType.set(node.type, new Set())
     }
@@ -67,12 +67,12 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 添加边
+   * Add edge
    */
   addEdge(edge: KnowledgeEdge): void {
     this.edges.set(edge.id, edge)
     
-    // 更新索引
+    // Update indexes
     if (!this.edgesBySource.has(edge.source)) {
       this.edgesBySource.set(edge.source, new Set())
     }
@@ -85,21 +85,21 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 获取节点
+   * Get node
    */
   getNode(id: string): KnowledgeNode | undefined {
     return this.nodes.get(id)
   }
 
   /**
-   * 获取边
+   * Get edge
    */
   getEdge(id: string): KnowledgeEdge | undefined {
     return this.edges.get(id)
   }
 
   /**
-   * 获取某类型的所有节点
+   * Get all nodes of a given type
    */
   getNodesByType(type: NodeType): KnowledgeNode[] {
     const nodeIds = this.nodesByType.get(type) || new Set()
@@ -109,7 +109,7 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 获取节点的所有出边
+   * Get all outgoing edges of a node
    */
   getOutgoingEdges(nodeId: string): KnowledgeEdge[] {
     const edgeIds = this.edgesBySource.get(nodeId) || new Set()
@@ -119,7 +119,7 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 获取节点的所有入边
+   * Get all incoming edges of a node
    */
   getIncomingEdges(nodeId: string): KnowledgeEdge[] {
     const edgeIds = this.edgesByTarget.get(nodeId) || new Set()
@@ -129,17 +129,17 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 获取节点的所有邻居
+   * Get all neighbors of a node
    */
   getNeighbors(nodeId: string): KnowledgeNode[] {
     const neighbors = new Set<string>()
     
-    // 出边的目标节点
+    // Outgoing edge targets
     for (const edge of this.getOutgoingEdges(nodeId)) {
       neighbors.add(edge.target)
     }
     
-    // 入边的源节点
+    // Incoming edge sources
     for (const edge of this.getIncomingEdges(nodeId)) {
       neighbors.add(edge.source)
     }
@@ -150,7 +150,7 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 查询与某个 agent 相关的所有信息（深度优先搜索）
+   * Query all information related to an agent (depth-first search)
    */
   getAgentContext(agentId: string, depth: number = 2): {
     nodes: KnowledgeNode[]
@@ -167,7 +167,7 @@ export class KnowledgeGraph {
       const node = this.nodes.get(nodeId)
       if (node) resultNodes.push(node)
       
-      // 遍历所有相关边
+      // Traverse all related edges
       const outEdges = this.getOutgoingEdges(nodeId)
       const inEdges = this.getIncomingEdges(nodeId)
       
@@ -186,7 +186,7 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 查找两个节点之间的最短路径
+   * Find shortest path between two nodes
    */
   findShortestPath(sourceId: string, targetId: string): KnowledgeNode[] | null {
     if (sourceId === targetId) {
@@ -213,11 +213,11 @@ export class KnowledgeGraph {
       }
     }
 
-    return null  // 没有找到路径
+    return null  // no path found
   }
 
   /**
-   * 获取图谱统计信息
+   * Get graph statistics
    */
   getStats(): {
     totalNodes: number
@@ -243,13 +243,324 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 从世界状态构建知识图谱
+   * Update an existing node's properties (merge)
+   */
+  updateNode(id: string, updates: Partial<Pick<KnowledgeNode, 'label' | 'properties'>>, tick: number): void {
+    const existing = this.nodes.get(id)
+    if (!existing) return
+    this.nodes.set(id, {
+      ...existing,
+      label: updates.label ?? existing.label,
+      properties: { ...existing.properties, ...updates.properties },
+      updated_at: tick,
+    })
+  }
+
+  /**
+   * Update an existing edge's weight/properties (merge)
+   */
+  updateEdge(id: string, updates: Partial<Pick<KnowledgeEdge, 'weight' | 'properties'>>, tick: number): void {
+    const existing = this.edges.get(id)
+    if (!existing) return
+    this.edges.set(id, {
+      ...existing,
+      weight: updates.weight ?? existing.weight,
+      properties: { ...existing.properties, ...updates.properties },
+      updated_at: tick,
+    })
+  }
+
+  /**
+   * Upsert a node — add if missing, update if exists
+   */
+  upsertNode(node: KnowledgeNode): void {
+    const existing = this.nodes.get(node.id)
+    if (existing) {
+      this.updateNode(node.id, { label: node.label, properties: node.properties }, node.updated_at)
+    } else {
+      this.addNode(node)
+    }
+  }
+
+  /**
+   * Upsert an edge — add if missing, update if exists
+   */
+  upsertEdge(edge: KnowledgeEdge): void {
+    const existing = this.edges.get(edge.id)
+    if (existing) {
+      this.updateEdge(edge.id, { weight: edge.weight, properties: edge.properties }, edge.updated_at)
+    } else {
+      this.addEdge(edge)
+    }
+  }
+
+  /**
+   * Remove a node and all its connected edges
+   */
+  removeNode(id: string): void {
+    const node = this.nodes.get(id)
+    if (!node) return
+
+    // Remove from type index
+    this.nodesByType.get(node.type)?.delete(id)
+
+    // Remove all connected edges
+    const outEdges = this.getOutgoingEdges(id)
+    const inEdges = this.getIncomingEdges(id)
+    for (const edge of [...outEdges, ...inEdges]) {
+      this.removeEdge(edge.id)
+    }
+
+    this.nodes.delete(id)
+  }
+
+  /**
+   * Remove an edge
+   */
+  removeEdge(id: string): void {
+    const edge = this.edges.get(id)
+    if (!edge) return
+
+    this.edgesBySource.get(edge.source)?.delete(id)
+    this.edgesByTarget.get(edge.target)?.delete(id)
+    this.edges.delete(id)
+  }
+
+  /**
+   * Incremental update from world state — only sync changes, don't rebuild
+   */
+  incrementalUpdate(world: WorldSlice): void {
+    const tick = world.tick
+
+    // 1. Sync agent nodes (add new, update existing, mark dead)
+    const currentAgentIds = new Set(world.agents.npcs.map(a => a.genetics.seed))
+
+    for (const agent of world.agents.npcs) {
+      this.upsertNode({
+        id: agent.genetics.seed,
+        type: 'agent',
+        label: agent.identity.name,
+        properties: {
+          name: agent.identity.name,
+          occupation: agent.occupation,
+          expertise: agent.expertise,
+          goals: agent.goals,
+          life_status: agent.life_status,
+          location: agent.location,
+          voice: agent.voice,
+          approach: agent.approach,
+          core_belief: agent.core_belief,
+          last_action: agent.last_action_description,
+        },
+        created_at: tick,
+        updated_at: tick,
+      })
+    }
+
+    // Mark removed agents
+    for (const node of this.getNodesByType('agent')) {
+      if (!currentAgentIds.has(node.id)) {
+        this.updateNode(node.id, { properties: { life_status: 'removed' } }, tick)
+      }
+    }
+
+    // 2. Sync relationship edges
+    for (const agent of world.agents.npcs) {
+      for (const [targetSeed, value] of Object.entries(agent.relations)) {
+        if (!this.nodes.has(targetSeed)) continue
+        const relation: RelationType = value > 0 ? 'likes' : value < 0 ? 'dislikes' : 'knows'
+        const edgeId = `${agent.genetics.seed}-rel-${targetSeed}`
+        this.upsertEdge({
+          id: edgeId,
+          source: agent.genetics.seed,
+          target: targetSeed,
+          relation,
+          weight: Math.abs(value),
+          properties: { sentiment: value },
+          created_at: tick,
+          updated_at: tick,
+        })
+      }
+    }
+
+    // 3. Sync location edges
+    for (const agent of world.agents.npcs) {
+      if (!agent.location) continue
+      const locNodeId = `loc-${agent.location}`
+
+      // Ensure location node exists
+      if (!this.nodes.has(locNodeId)) {
+        this.addNode({
+          id: locNodeId,
+          type: 'location',
+          label: agent.location,
+          properties: {},
+          created_at: tick,
+          updated_at: tick,
+        })
+      }
+
+      const edgeId = `${agent.genetics.seed}-at-${locNodeId}`
+      this.upsertEdge({
+        id: edgeId,
+        source: agent.genetics.seed,
+        target: locNodeId,
+        relation: 'located_in',
+        weight: 1.0,
+        properties: {},
+        created_at: tick,
+        updated_at: tick,
+      })
+    }
+
+    // 4. Add new narrative patterns
+    for (const narrative of world.narratives.patterns) {
+      this.upsertNode({
+        id: narrative.id,
+        type: 'concept',
+        label: narrative.type,
+        properties: {
+          type: narrative.type,
+          intensity: narrative.intensity,
+          participants: narrative.participants,
+          status: narrative.status,
+        },
+        created_at: narrative.started_at,
+        updated_at: tick,
+      })
+
+      for (const seed of narrative.participants) {
+        this.upsertEdge({
+          id: `${narrative.id}-participant-${seed}`,
+          source: seed,
+          target: narrative.id,
+          relation: 'participates_in',
+          weight: narrative.intensity,
+          properties: {},
+          created_at: narrative.started_at,
+          updated_at: tick,
+        })
+      }
+    }
+
+    // 5. Add new important events (only events not yet in graph)
+    const importantEvents = world.events.filter(e =>
+      ['agent_death', 'agent_reincarnation', 'agent_spawn'].includes(e.type) &&
+      !this.nodes.has(e.id)
+    )
+
+    for (const event of importantEvents) {
+      this.addNode({
+        id: event.id,
+        type: 'event',
+        label: event.type,
+        properties: {
+          type: event.type,
+          timestamp: event.timestamp,
+          payload: event.payload,
+        },
+        created_at: tick,
+        updated_at: tick,
+      })
+
+      if (event.payload?.agent_seed) {
+        this.addEdge({
+          id: `${event.id}-caused-by-${event.payload.agent_seed}`,
+          source: event.payload.agent_seed as string,
+          target: event.id,
+          relation: 'caused_by',
+          weight: 1.0,
+          properties: {},
+          created_at: tick,
+          updated_at: tick,
+        })
+      }
+    }
+  }
+
+  /**
+   * Ingest an agent's action into the graph as an event node + edges
+   */
+  ingestAgentAction(
+    agentSeed: string,
+    action: {
+      type: string
+      target?: string
+      description?: string
+      location?: string
+      is_conflict?: boolean
+    },
+    tick: number
+  ): void {
+    const eventId = `action-${agentSeed}-${tick}`
+
+    // Add action as event node
+    this.upsertNode({
+      id: eventId,
+      type: 'event',
+      label: action.type,
+      properties: {
+        description: action.description,
+        location: action.location,
+        is_conflict: action.is_conflict,
+        actor: agentSeed,
+      },
+      created_at: tick,
+      updated_at: tick,
+    })
+
+    // Edge: agent caused this action
+    this.upsertEdge({
+      id: `${eventId}-by-${agentSeed}`,
+      source: agentSeed,
+      target: eventId,
+      relation: 'caused_by',
+      weight: 0.8,
+      properties: {},
+      created_at: tick,
+      updated_at: tick,
+    })
+
+    // Edge: action targets another agent
+    if (action.target && this.nodes.has(action.target)) {
+      this.upsertEdge({
+        id: `${eventId}-targets-${action.target}`,
+        source: eventId,
+        target: action.target,
+        relation: 'related_to',
+        weight: 0.7,
+        properties: { role: 'target' },
+        created_at: tick,
+        updated_at: tick,
+      })
+    }
+
+    // Edge: action happened at location
+    if (action.location) {
+      const locNodeId = `loc-${action.location}`
+      if (this.nodes.has(locNodeId)) {
+        this.upsertEdge({
+          id: `${eventId}-at-${locNodeId}`,
+          source: eventId,
+          target: locNodeId,
+          relation: 'located_in',
+          weight: 0.5,
+          properties: {},
+          created_at: tick,
+          updated_at: tick,
+        })
+      }
+    }
+  }
+
+  /**
+   * Build knowledge graph from world state
    */
   static buildFromWorld(world: WorldSlice): KnowledgeGraph {
     const graph = new KnowledgeGraph()
     const currentTick = world.tick
 
-    // 1. 添加所有 agents 作为节点
+    // 1. Add all agents as nodes
     for (const agent of world.agents.npcs) {
       graph.addNode({
         id: agent.genetics.seed,
@@ -258,7 +569,6 @@ export class KnowledgeGraph {
         properties: {
           name: agent.identity.name,
           occupation: agent.occupation,
-          role: agent.role,
           expertise: agent.expertise,
           goals: agent.goals,
           life_status: agent.life_status,
@@ -271,7 +581,7 @@ export class KnowledgeGraph {
       })
     }
 
-    // 2. 添加 agents 之间的关系边
+    // 2. Add relationship edges between agents
     for (const agent of world.agents.npcs) {
       for (const [otherAgentName, relationValue] of Object.entries(agent.relations)) {
         const otherAgent = world.agents.npcs.find(a => a.identity.name === otherAgentName)
@@ -293,7 +603,7 @@ export class KnowledgeGraph {
       }
     }
 
-    // 3. 添加叙事作为节点（涌现式叙事系统）
+    // 3. Add narratives as nodes (emergent narrative system)
     for (const narrative of world.narratives.patterns) {
       graph.addNode({
         id: narrative.id,
@@ -303,14 +613,13 @@ export class KnowledgeGraph {
           type: narrative.type,
           intensity: narrative.intensity,
           participants: narrative.participants,
-          context: narrative.context,
           status: narrative.status,
         },
-        created_at: narrative.detected_at,
+        created_at: narrative.started_at,
         updated_at: currentTick,
       })
 
-      // 连接叙事与参与者
+      // Connect narrative to participants
       for (const participantSeed of narrative.participants) {
         graph.addEdge({
           id: `${narrative.id}-participant-${participantSeed}`,
@@ -319,13 +628,13 @@ export class KnowledgeGraph {
           relation: 'participates_in',
           weight: narrative.intensity,
           properties: {},
-          created_at: narrative.detected_at,
+          created_at: narrative.started_at,
           updated_at: currentTick,
         })
       }
     }
 
-    // 4. 添加重要事件作为节点
+    // 4. Add important events as nodes
     const importantEvents = world.events.filter(e => 
       ['plot_triggered', 'plot_completed', 'agent_death', 'agent_reincarnation'].includes(e.type)
     )
@@ -344,7 +653,7 @@ export class KnowledgeGraph {
         updated_at: currentTick,
       })
 
-      // 连接事件与相关 agent
+      // Connect event to related agent
       if (event.payload?.agent_seed) {
         const agentSeed = event.payload.agent_seed as string
         graph.addEdge({
@@ -359,7 +668,7 @@ export class KnowledgeGraph {
         })
       }
 
-      // 连接事件与相关叙事
+      // Connect event to related narrative
       if (event.payload?.narrative_id) {
         const narrativeId = event.payload.narrative_id as string
         graph.addEdge({
@@ -379,7 +688,37 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 导出为 JSON 格式（用于可视化）
+   * Trace causal chain — follow caused_by edges to find the chain of events
+   * starting from a given event node. Returns the chain of connected events.
+   */
+  traceCausalChain(eventNodeId: string, maxDepth: number = 10): KnowledgeNode[] {
+    const chain: KnowledgeNode[] = []
+    const visited = new Set<string>()
+
+    const traverse = (nodeId: string, depth: number) => {
+      if (depth >= maxDepth || visited.has(nodeId)) return
+      visited.add(nodeId)
+
+      const node = this.nodes.get(nodeId)
+      if (node) chain.push(node)
+
+      // Follow caused_by and related_to edges
+      for (const edge of this.edges.values()) {
+        if (edge.source === nodeId && (edge.relation === 'caused_by' || edge.relation === 'related_to')) {
+          traverse(edge.target, depth + 1)
+        }
+        if (edge.target === nodeId && edge.relation === 'caused_by') {
+          traverse(edge.source, depth + 1)
+        }
+      }
+    }
+
+    traverse(eventNodeId, 0)
+    return chain
+  }
+
+  /**
+   * Export to JSON (for visualization)
    */
   toJSON(): {
     nodes: KnowledgeNode[]
@@ -392,7 +731,7 @@ export class KnowledgeGraph {
   }
 
   /**
-   * 从 JSON 导入
+   * Import from JSON
    */
   static fromJSON(data: { nodes: KnowledgeNode[]; edges: KnowledgeEdge[] }): KnowledgeGraph {
     const graph = new KnowledgeGraph()
@@ -410,7 +749,7 @@ export class KnowledgeGraph {
 }
 
 /**
- * 创建知识图谱实例
+ * Create knowledge graph instance
  */
 export function createKnowledgeGraph(world?: WorldSlice): KnowledgeGraph {
   if (world) {

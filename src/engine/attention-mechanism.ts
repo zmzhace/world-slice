@@ -1,6 +1,6 @@
 /**
- * 注意力机制
- * 核心：Agents 的注意力是有限的，需要选择性关注
+ * Attention mechanism
+ * Core: Agents have limited attention, need to selectively focus
  */
 
 import type { PersonalAgentState, WorldSlice } from '@/domain/world'
@@ -9,19 +9,19 @@ export type Stimulus = {
   id: string
   type: 'agent' | 'event' | 'resource' | 'narrative' | 'environment'
   source: string
-  salience: number  // 显著性 [0-1]
-  urgency: number  // 紧急性 [0-1]
-  relevance: number  // 相关性 [0-1]
+  salience: number  // salience [0-1]
+  urgency: number  // urgency [0-1]
+  relevance: number  // relevance [0-1]
   description: string
 }
 
 export type AttentionState = {
   agent_id: string
-  capacity: number  // 注意力容量
-  current_focus: string[]  // 当前关注的对象
-  attention_weights: Map<string, number>  // 注意力权重
-  fatigue: number  // 疲劳度 [0-1]
-  last_shift: number  // 上次转移注意力的时间
+  capacity: number  // attention capacity
+  current_focus: string[]  // currently focused objects
+  attention_weights: Map<string, number>  // attention weights
+  fatigue: number  // fatigue level [0-1]
+  last_shift: number  // last attention shift time
 }
 
 export type AttentionAllocation = {
@@ -32,15 +32,15 @@ export type AttentionAllocation = {
 
 export class AttentionMechanism {
   private attentionStates: Map<string, AttentionState> = new Map()
-  private readonly BASE_CAPACITY = 3  // 基础容量
+  private readonly BASE_CAPACITY = 3  // base capacity
   private readonly FATIGUE_RATE = 0.05
   private readonly RECOVERY_RATE = 0.1
   
   /**
-   * 初始化 agent 的注意力状态
+   * Initialize agent's attention state
    */
   initializeAttention(agent: PersonalAgentState): AttentionState {
-    // 容量基于个性
+    // Capacity based on personality
     const capacity = this.BASE_CAPACITY + Math.floor(agent.persona.focus * 2)
     
     const state: AttentionState = {
@@ -57,7 +57,7 @@ export class AttentionMechanism {
   }
   
   /**
-   * 分配注意力
+   * Allocate attention
    */
   allocateAttention(
     agent: PersonalAgentState,
@@ -69,16 +69,16 @@ export class AttentionMechanism {
       state = this.initializeAttention(agent)
     }
     
-    // 计算每个刺激的注意力权重
+    // Calculate attention weight for each stimulus
     const weightedStimuli = stimuli.map(stimulus => ({
       stimulus,
       weight: this.calculateAttentionWeight(stimulus, agent, state!)
     }))
     
-    // 按权重排序
+    // Sort by weight
     weightedStimuli.sort((a, b) => b.weight - a.weight)
     
-    // 分配注意力（受容量限制）
+    // Allocate attention (limited by capacity)
     const allocations: AttentionAllocation[] = []
     const effectiveCapacity = Math.max(1, Math.floor(state.capacity * (1 - state.fatigue)))
     
@@ -95,7 +95,7 @@ export class AttentionMechanism {
       state.attention_weights.set(stimulus.id, weight)
     }
     
-    // 限制 current_focus 大小
+    // Limit current_focus size
     if (state.current_focus.length > effectiveCapacity) {
       const removed = state.current_focus.splice(0, state.current_focus.length - effectiveCapacity)
       for (const id of removed) {
@@ -103,14 +103,14 @@ export class AttentionMechanism {
       }
     }
     
-    // 增加疲劳
+    // Increase fatigue
     state.fatigue = Math.min(1, state.fatigue + this.FATIGUE_RATE * allocations.length)
     
     return allocations
   }
   
   /**
-   * 计算注意力权重
+   * Calculate attention weight
    */
   calculateAttentionWeight(
     stimulus: Stimulus,
@@ -119,39 +119,39 @@ export class AttentionMechanism {
   ): number {
     let weight = 0
     
-    // 1. 显著性（基础权重）
+    // 1. Salience (base weight)
     weight += stimulus.salience * 0.3
     
-    // 2. 紧急性
+    // 2. Urgency
     weight += stimulus.urgency * 0.3
     
-    // 3. 相关性
+    // 3. Relevance
     weight += stimulus.relevance * 0.2
     
-    // 4. 个性影响
+    // 4. Personality influence
     if (stimulus.type === 'agent') {
-      // 高依恋的人更关注其他 agents
+      // High attachment people pay more attention to other agents
       weight += agent.persona.attachment * 0.1
     }
     
     if (stimulus.type === 'event') {
-      // 低稳定性的人更容易被事件吸引
+      // Low stability people are more attracted to events
       weight += (1 - agent.persona.stability) * 0.1
     }
     
     if (stimulus.type === 'resource') {
-      // 能量低时更关注资源
+      // More attention to resources when energy is low
       if (agent.vitals.energy < 0.5) {
         weight += 0.2
       }
     }
     
-    // 5. 新奇性（不在当前关注中的更吸引注意）
+    // 5. Novelty (items not in current focus are more attractive)
     if (!state.current_focus.includes(stimulus.id)) {
       weight += agent.persona.openness * 0.15
     }
     
-    // 6. 疲劳影响（疲劳时只关注高优先级）
+    // 6. Fatigue effect (when fatigued, only focus on high priority)
     if (state.fatigue > 0.5) {
       weight *= (1 - state.fatigue * 0.5)
     }
@@ -160,7 +160,7 @@ export class AttentionMechanism {
   }
   
   /**
-   * 注意力转移
+   * Attention shift
    */
   shiftAttention(
     agent: PersonalAgentState,
@@ -170,10 +170,10 @@ export class AttentionMechanism {
     const state = this.attentionStates.get(agent.genetics.seed)
     if (!state) return false
     
-    // 计算新刺激的权重
+    // Calculate new stimulus weight
     const newWeight = this.calculateAttentionWeight(newStimulus, agent, state)
     
-    // 如果容量未满，直接添加
+    // If capacity not full, add directly
     const effectiveCapacity = Math.max(1, Math.floor(state.capacity * (1 - state.fatigue)))
     if (state.current_focus.length < effectiveCapacity) {
       state.current_focus.push(newStimulus.id)
@@ -182,7 +182,7 @@ export class AttentionMechanism {
       return true
     }
     
-    // 找到权重最低的当前关注
+    // Find lowest weight in current focus
     let lowestWeight = Infinity
     let lowestId = ''
     
@@ -193,7 +193,7 @@ export class AttentionMechanism {
       }
     }
     
-    // 如果新刺激权重更高，替换
+    // If new stimulus has higher weight, replace
     if (newWeight > lowestWeight) {
       const index = state.current_focus.indexOf(lowestId)
       if (index !== -1) {
@@ -203,7 +203,7 @@ export class AttentionMechanism {
       state.attention_weights.set(newStimulus.id, newWeight)
       state.last_shift = currentTick
       
-      // 转移注意力增加疲劳
+      // Shifting attention increases fatigue
       state.fatigue = Math.min(1, state.fatigue + this.FATIGUE_RATE * 0.5)
       
       return true
@@ -213,16 +213,16 @@ export class AttentionMechanism {
   }
   
   /**
-   * 恢复注意力（休息）
+   * Recover attention (rest)
    */
   recoverAttention(agent: PersonalAgentState): void {
     const state = this.attentionStates.get(agent.genetics.seed)
     if (!state) return
     
-    // 降低疲劳
+    // Reduce fatigue
     state.fatigue = Math.max(0, state.fatigue - this.RECOVERY_RATE)
     
-    // 如果完全恢复，清空部分关注
+    // If fully recovered, clear some focus
     if (state.fatigue < 0.1) {
       const toRemove = Math.floor(state.current_focus.length * 0.3)
       for (let i = 0; i < toRemove; i++) {
@@ -235,7 +235,7 @@ export class AttentionMechanism {
   }
   
   /**
-   * 检查是否在关注
+   * Check if attending to
    */
   isAttendingTo(agentId: string, stimulusId: string): boolean {
     const state = this.attentionStates.get(agentId)
@@ -245,7 +245,7 @@ export class AttentionMechanism {
   }
   
   /**
-   * 获取注意力权重
+   * Get attention weight
    */
   getAttentionWeight(agentId: string, stimulusId: string): number {
     const state = this.attentionStates.get(agentId)
@@ -255,7 +255,7 @@ export class AttentionMechanism {
   }
   
   /**
-   * 创建刺激
+   * Create stimulus
    */
   createStimulus(
     type: Stimulus['type'],
@@ -279,31 +279,42 @@ export class AttentionMechanism {
   }
   
   /**
-   * 从世界状态生成刺激
+   * Generate stimuli from world state
+   * reputationInfluences: optional map of agentId -> influence score from ReputationSystem
+   * activeTensions: optional array of active dramatic tensions
    */
-  generateStimuliFromWorld(world: WorldSlice, agent: PersonalAgentState): Stimulus[] {
+  generateStimuliFromWorld(
+    world: WorldSlice,
+    agent: PersonalAgentState,
+    reputationInfluences?: Map<string, number>,
+    activeTensions?: Array<{ source: string; level: number; target_agents: string[] }>
+  ): Stimulus[] {
     const stimuli: Stimulus[] = []
     
-    // 1. 其他 agents
+    // 1. Other agents
     for (const other of world.agents.npcs) {
       if (other.genetics.seed === agent.genetics.seed) continue
       
       const relationship = agent.relations[other.genetics.seed] || 0
       const relevance = Math.abs(relationship)
-      
+
+      // Reputation factor: high-reputation agents are more salient
+      const repInfluence = reputationInfluences?.get(other.genetics.seed) || 0
+      const repBoost = repInfluence * 0.2
+
       stimuli.push(this.createStimulus(
         'agent',
         other.genetics.seed,
         `Agent: ${other.identity.name}`,
         {
-          salience: 0.5,
+          salience: Math.min(1, 0.5 + repBoost),
           urgency: 0.3,
           relevance
         }
       ))
     }
     
-    // 2. 最近事件
+    // 2. Recent events
     const recentEvents = world.events.slice(-5)
     for (const event of recentEvents) {
       stimuli.push(this.createStimulus(
@@ -318,7 +329,7 @@ export class AttentionMechanism {
       ))
     }
     
-    // 3. 资源（如果能量低）
+    // 3. Resources (if energy is low)
     if (agent.vitals.energy < 0.5) {
       stimuli.push(this.createStimulus(
         'resource',
@@ -332,7 +343,7 @@ export class AttentionMechanism {
       ))
     }
     
-    // 4. 叙事（如果参与）
+    // 4. Narratives (if participating)
     if (world.narratives) {
       const participatingNarratives = world.narratives.patterns.filter(n =>
         n.participants.includes(agent.genetics.seed)
@@ -352,24 +363,42 @@ export class AttentionMechanism {
       }
     }
     
+    // 5. Active tensions (high-tension events generate urgent stimuli)
+    if (activeTensions) {
+      for (const tension of activeTensions) {
+        if (tension.target_agents.includes(agent.genetics.seed) && tension.level > 0.3) {
+          stimuli.push(this.createStimulus(
+            'event',
+            `tension-${tension.source}`,
+            `Tension: ${tension.source}`,
+            {
+              salience: tension.level,
+              urgency: tension.level,
+              relevance: 0.8,
+            }
+          ))
+        }
+      }
+    }
+
     return stimuli
   }
   
   /**
-   * 生成分配理由
+   * Generate allocation reason
    */
   private generateAllocationReason(stimulus: Stimulus, weight: number): string {
     if (weight > 0.8) {
-      return `高度关注${stimulus.description}（权重: ${weight.toFixed(2)}）`
+      return `High attention to ${stimulus.description} (weight: ${weight.toFixed(2)})`
     } else if (weight > 0.5) {
-      return `中度关注${stimulus.description}（权重: ${weight.toFixed(2)}）`
+      return `Moderate attention to ${stimulus.description} (weight: ${weight.toFixed(2)})`
     } else {
-      return `轻度关注${stimulus.description}（权重: ${weight.toFixed(2)}）`
+      return `Low attention to ${stimulus.description} (weight: ${weight.toFixed(2)})`
     }
   }
   
   /**
-   * 获取统计信息
+   * Get statistics
    */
   getStats() {
     const states = Array.from(this.attentionStates.values())
@@ -385,14 +414,14 @@ export class AttentionMechanism {
   }
   
   /**
-   * 获取 agent 的注意力状态
+   * Get agent's attention state
    */
   getAttentionState(agentId: string): AttentionState | undefined {
     return this.attentionStates.get(agentId)
   }
 
   /**
-   * 导出快照
+   * Export snapshot
    */
   toSnapshot(): { states: Record<string, Omit<AttentionState, 'attention_weights'> & { attention_weights: Record<string, number> }> } {
     const states: Record<string, any> = {}
@@ -406,7 +435,7 @@ export class AttentionMechanism {
   }
 
   /**
-   * 从快照恢复
+   * Restore from snapshot
    */
   fromSnapshot(snapshot: { states: Record<string, any> }): void {
     this.attentionStates.clear()

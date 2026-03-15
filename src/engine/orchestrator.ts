@@ -35,7 +35,7 @@ type OrchestratorOptions = {
   directorRegistry?: { runAll: (world: WorldSlice) => Promise<{ agentId: string; patch?: unknown; error?: string }[]> }
 }
 
-// 全局系统实例（跨 tick 保持状态，从 world.systems 水合）
+// Global system instances (persist across ticks, hydrated from world.systems)
 let globalReputationSystem: ReputationSystem | null = null
 let globalBiasSystem: CognitiveBiasSystem | null = null
 let globalResourceSystem: ResourceCompetitionSystem | null = null
@@ -47,21 +47,21 @@ let globalMemorySystems: Map<string, HierarchicalMemorySystem> = new Map()
 let globalAttentionMechanism: AttentionMechanism | null = null
 
 /**
- * 从 world.systems 水合全局系统单例
+ * Hydrate global system singletons from world.systems
  */
 function hydrateSystemsFromWorld(world: WorldSlice): void {
   const sys = world.systems || {}
 
-  // 声誉系统
+  // Reputation system
   globalReputationSystem = new ReputationSystem()
   if (sys.reputation) {
     globalReputationSystem.fromSnapshot(sys.reputation)
   }
 
-  // 认知偏差（无状态，每次 new 即可）
+  // Cognitive bias (stateless, just new each time)
   globalBiasSystem = new CognitiveBiasSystem()
 
-  // 资源竞争
+  // Resource competition
   globalResourceSystem = new ResourceCompetitionSystem()
   if (sys.resources) {
     globalResourceSystem.fromSnapshot(sys.resources)
@@ -69,31 +69,31 @@ function hydrateSystemsFromWorld(world: WorldSlice): void {
     globalResourceSystem.initializeResources(world)
   }
 
-  // 戏剧张力
+  // Dramatic tension
   globalTensionSystem = new DramaticTensionSystem()
   if (sys.tension) {
     globalTensionSystem.fromSnapshot(sys.tension)
   }
 
-  // 涌现检测
+  // Emergence detection
   globalEmergenceDetector = new EmergentPropertyDetector()
   if (sys.emergence) {
     globalEmergenceDetector.fromSnapshot(sys.emergence)
   }
 
-  // 社会角色
+  // Social roles
   globalRoleSystem = new SocialRoleSystem()
   if (sys.social_roles) {
     globalRoleSystem.fromSnapshot(sys.social_roles)
   }
 
-  // 模因传播
+  // Meme propagation
   globalMemeSystem = new MemePropagationSystem()
   if (sys.memes) {
     globalMemeSystem.fromSnapshot(sys.memes)
   }
 
-  // 注意力机制
+  // Attention mechanism
   globalAttentionMechanism = new AttentionMechanism()
   if (sys.attention) {
     globalAttentionMechanism.fromSnapshot(sys.attention)
@@ -101,7 +101,7 @@ function hydrateSystemsFromWorld(world: WorldSlice): void {
 }
 
 /**
- * 将所有系统状态导出为 SystemsState
+ * Export all system states as SystemsState
  */
 function exportSystemsState(knowledgeGraph: KnowledgeGraph): SystemsState {
   return {
@@ -117,13 +117,13 @@ function exportSystemsState(knowledgeGraph: KnowledgeGraph): SystemsState {
 }
 
 /**
- * 世界状态演进 - 根据本轮事件更新 social_context
- * 纯粹从事件内容驱动，不做硬编码阈值判断
+ * World state evolution — update social_context based on this tick's events
+ * Purely event-driven, no hardcoded threshold logic
  */
 function evolveWorldState(world: WorldSlice, patch: ReturnType<typeof arbitratePatches>): WorldSlice {
   const updatedSocialContext = { ...world.social_context }
 
-  // 1. 所有有 summary 的事件都是潜在的宏观事件
+  // 1. All events with summaries are potential macro events
   const newEventSummaries = patch.events
     .filter(e => e.summary && e.summary.length > 5)
     .map(e => e.summary)
@@ -135,13 +135,13 @@ function evolveWorldState(world: WorldSlice, patch: ReturnType<typeof arbitrateP
         updatedSocialContext.macro_events.push(evt)
       }
     }
-    // 保留最近 20 条
+    // Keep last 20
     if (updatedSocialContext.macro_events.length > 20) {
       updatedSocialContext.macro_events = updatedSocialContext.macro_events.slice(-20)
     }
   }
 
-  // 2. 从叙事模式更新 narratives
+  // 2. Update narratives from narrative patterns
   const activeNarrativeDescriptions = world.narratives.patterns
     .filter(p => p.status === 'developing' || p.status === 'climax')
     .slice(0, 5)
@@ -156,7 +156,7 @@ function evolveWorldState(world: WorldSlice, patch: ReturnType<typeof arbitrateP
     updatedSocialContext.narratives = activeNarrativeDescriptions
   }
 
-  // 3. 从 NPC 的情绪状态生成环境氛围（不做阈值判断，直接统计主流情绪）
+  // 3. Generate ambient atmosphere from NPC emotions (direct stats, no threshold logic)
   const emotionCounts = new Map<string, number>()
   for (const npc of world.agents.npcs) {
     if (npc.emotion.label && npc.emotion.label !== 'neutral') {
@@ -175,7 +175,7 @@ function evolveWorldState(world: WorldSlice, patch: ReturnType<typeof arbitrateP
     ].slice(0, 4)
   }
 
-  // 4. 清理过旧的事件（保留最近 200 条）
+  // 4. Trim old events (keep last 200)
   const trimmedEvents = world.events.length > 200
     ? world.events.slice(-200)
     : world.events
@@ -194,15 +194,15 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const nextTick = world.tick + 1
   const timestamp = new Date(Date.parse(world.time) + 1000).toISOString()
 
-  // 初始化新系统
+  // Initialize new systems
   const recSystem = createRecommendationSystem()
   const narrativeInfluence = new NarrativeInfluenceSystem()
   const collectiveMemory = new CollectiveMemorySystem()
 
-  // 从 world.systems 水合全局系统（替代旧的 if (!global) new() 模式）
+  // Hydrate global systems from world.systems (replaces old if (!global) new() pattern)
   hydrateSystemsFromWorld(world)
 
-  // 知识图谱：如果有持久化快照则恢复，否则从世界状态构建
+  // Knowledge graph: restore from persisted snapshot if available, otherwise build from world state
   let knowledgeGraph: KnowledgeGraph
   if (world.systems?.knowledge_graph) {
     knowledgeGraph = KnowledgeGraph.fromJSON(world.systems.knowledge_graph)
@@ -325,13 +325,13 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     return earlyNext
   }
 
-  // 并行执行 Pangu agents 和 NPC agents
+  // Execute Pangu agents and NPC agents in parallel
   const [directorResults, npcResults] = await Promise.all([
     options.directorRegistry.runAll(world),
     executeNpcAgents({ ...world, agents: { ...world.agents, npcs: activeNpcsForDecision } }),
   ])
 
-  // 合并所有 agent 的结果
+  // Merge all agent results
   const allResults = [
     ...directorResults,
     ...npcResults.map(r => ({ agentId: r.agentId, patch: r.patch })),
@@ -339,7 +339,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
 
   const patch = arbitratePatches(allResults as { agentId: string; patch?: any; error?: string }[])
 
-  // 应用 NPC agents 的状态更新
+  // Apply NPC agent state updates
   const updatedNpcsMap = new Map(npcResults.map(r => [r.agentId, r.updatedAgent]))
   const npcsAfterExecution = baseNext.agents.npcs.map(agent => 
     updatedNpcsMap.get(agent.genetics.seed) || agent
@@ -367,7 +367,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   const houtuConfig = createHoutuConfig()
   const houtuEvents: Array<{ id: string; type: string; timestamp: string; payload?: Record<string, unknown> }> = []
   
-  // 1. 判定生死
+  // 1. Judge life and death
   const updatedNpcsAfterHoutu: PersonalAgentState[] = []
   const deadAgents: PersonalAgentState[] = []
   
@@ -375,7 +375,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     const judgment = judgeLife(npc, next.tick, houtuConfig)
     
     if (judgment.should_die && npc.life_status === 'alive') {
-      // 标记为死亡
+      // Mark as dead
       const dyingAgent: PersonalAgentState = {
         ...npc,
         life_status: 'dead',
@@ -402,19 +402,19 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     }
   }
   
-  // 2. 处理轮回
+  // 2. Handle reincarnation
   const reincarnatedAgents: PersonalAgentState[] = []
   
   for (const deadAgent of deadAgents) {
     const reincarnation = decideReincarnation(deadAgent, next.tick, houtuConfig)
     
     if (reincarnation.should_reincarnate) {
-      // 创建轮回后的新 agent
+      // Create new agent after reincarnation
       const newAgent = createPersonalAgent(`${deadAgent.genetics.seed}-reborn-${next.tick}`)
       newAgent.life_status = 'alive'
       newAgent.identity.name = `${deadAgent.identity.name}${next.config?.reborn_suffix || ' Reborn'}`
       
-      // 继承部分特质
+      // Inherit partial traits
       if (reincarnation.inherited_traits) {
         if (reincarnation.inherited_traits.goals) {
           newAgent.goals = reincarnation.inherited_traits.goals
@@ -423,7 +423,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
           newAgent.relations = reincarnation.inherited_traits.relations
         }
         if (reincarnation.inherited_traits.memories) {
-          // 将记忆转为模糊的长期记忆
+          // Convert memories to fuzzy long-term memories
           newAgent.memory_long = reincarnation.inherited_traits.memories.map((content, idx) => ({
             id: `inherited-${next.tick}-${idx}`,
             content: `${next.config?.past_life_prefix || 'Past life: '}${content}`,
@@ -453,7 +453,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     }
   }
   
-  // 3. 清理死亡 agents（延迟清理）
+  // 3. Clean up dead agents (delayed cleanup)
   const cleanedNpcs = updatedNpcsAfterHoutu.filter(npc => {
     if (npc.life_status === 'dead' && npc.death_tick) {
       const ticksSinceDeath = next.tick - npc.death_tick
@@ -462,10 +462,10 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     return true
   })
   
-  // 4. 添加轮回的新 agents
+  // 4. Add reincarnated agents
   const finalNpcs = [...cleanedNpcs, ...reincarnatedAgents]
   
-  // 更新世界状态
+  // Update world state
   next = {
     ...next,
     agents: {
@@ -475,14 +475,14 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     events: [...next.events, ...houtuEvents],
   }
 
-  // 涌现式叙事系统 - 识别叙事模式
+  // Emergent narrative system — recognize narrative patterns
   const narrativeRecognizer = new NarrativeRecognizer()
   
-  // 1. 识别新的叙事模式（从最近 100 个事件）
+  // 1. Recognize new narrative patterns (from last 100 events)
   const recentEvents = next.events.slice(-100)
   const newPatterns = await narrativeRecognizer.recognizePatterns(recentEvents, next)
   
-  // 2. 更新现有叙事模式（追踪发展）
+  // 2. Update existing narrative patterns (track development)
   const recentEventsForTracking = next.events.slice(-10)
   const updatedPatterns = await Promise.all(
     next.narratives.patterns.map(pattern =>
@@ -490,20 +490,20 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     )
   )
   
-  // 3. 合并新旧模式（去重）
+  // 3. Merge old and new patterns (deduplicate)
   const allPatterns = [...updatedPatterns, ...newPatterns]
   const uniquePatterns = allPatterns.filter((pattern, index, self) =>
     index === self.findIndex(p => p.id === pattern.id)
   )
   
-  // 4. 检测故事弧
+  // 4. Detect story arcs
   const storyArcDetector = new StoryArcDetector()
   const detectedArcs = await storyArcDetector.detectArcs(uniquePatterns)
   
-  // 5. 更新现有故事弧
+  // 5. Update existing story arcs
   const updatedArcs = await Promise.all(
     next.narratives.arcs.map(async arc => {
-      // 找到相关的新模式
+      // Find related new patterns
       const relevantNewPatterns = uniquePatterns.filter(p =>
         p.participants.some(participant =>
           [...arc.protagonists, ...arc.antagonists, ...arc.supporting].includes(participant)
@@ -517,13 +517,13 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     })
   )
   
-  // 6. 合并新旧故事弧
+  // 6. Merge old and new story arcs
   const allArcs = [...updatedArcs, ...detectedArcs]
   const uniqueArcs = allArcs.filter((arc, index, self) =>
     index === self.findIndex(a => a.id === arc.id)
   )
   
-  // 7. 生成叙事总结（每 10 个 tick）
+  // 7. Generate narrative summary (every 10 ticks)
   let summaries = next.narratives.summaries
   if (next.tick % 10 === 0 && uniquePatterns.length > 0) {
     const summarizer = new NarrativeSummarizer()
@@ -533,7 +533,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[NarrativeSummarizer] Generated summary: "${newSummary.title}"`)
   }
   
-  // 8. 更新统计信息
+  // 8. Update statistics
   const narrativeStats = {
     total_patterns: uniquePatterns.length,
     active_patterns: uniquePatterns.filter(p => 
@@ -546,7 +546,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   
   console.log(`[NarrativeSystem] Tick ${nextTick}: ${narrativeStats.active_patterns} active patterns, ${narrativeStats.total_arcs} story arcs`)
   
-  // 9. 更新世界的叙事系统
+  // 9. Update world's narrative system
   next = {
     ...next,
     narratives: {
@@ -557,12 +557,12 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     }
   }
   
-  // 10. 叙事影响系统 - 让叙事影响 agents
+  // 10. Narrative influence system — let narratives affect agents
   const npcsWithNarrativeInfluence = next.agents.npcs.map(agent =>
     narrativeInfluence.applyNarrativeInfluence(agent, uniquePatterns, next)
   )
   
-  // 11. 群体记忆系统 - 检测和传播群体记忆
+  // 11. Collective memory system — detect and propagate collective memories
   const newCollectiveMemories = collectiveMemory.detectCollectiveMemory(
     npcsWithNarrativeInfluence,
     next.tick
@@ -571,14 +571,14 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   if (newCollectiveMemories.length > 0) {
     console.log(`[CollectiveMemory] Formed ${newCollectiveMemories.length} new collective memories`)
     
-    // 传播群体记忆
+    // Propagate collective memory
     const npcsWithCollectiveMemory = collectiveMemory.propagateMemory(
-      newCollectiveMemories[0],  // 传播第一个群体记忆
+      newCollectiveMemories[0],  // propagate first collective memory
       npcsWithNarrativeInfluence,
       next.tick
     )
     
-    // 提取文化规范
+    // Extract cultural norms
     const culturalNorms = collectiveMemory.extractCulturalNorms(
       collectiveMemory.getAllCollectiveMemories()
     )
@@ -604,20 +604,72 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     }
   }
   
-  // 群体记忆统计
+  // Collective memory stats
   const memoryStats = collectiveMemory.getStats()
   if (memoryStats.total_memories > 0) {
     console.log(`[CollectiveMemory] ${memoryStats.total_memories} memories, ${memoryStats.total_norms} norms`)
   }
 
-  // 知识图谱更新：重建图谱（每个 tick）
-  const updatedKnowledgeGraph = createKnowledgeGraph(next)
-  const graphStats = updatedKnowledgeGraph.getStats()
+  // Knowledge graph: incremental update + ingest agent actions
+  knowledgeGraph.incrementalUpdate(next)
+
+  // Write agent actions back into the graph (action → graph closed loop)
+  for (const result of npcResults) {
+    const agent = next.agents.npcs.find(a => a.genetics.seed === result.agentId)
+    if (!agent) continue
+    knowledgeGraph.ingestAgentAction(
+      result.agentId,
+      {
+        type: result.patch.meta?.actionType as string || 'unknown',
+        target: result.patch.meta?.agentId as string || undefined,
+        description: agent.last_action_description,
+        location: agent.location,
+        is_conflict: result.patch.events?.some(e => e.conflict) ?? false,
+      },
+      nextTick
+    )
+  }
+
+  const graphStats = knowledgeGraph.getStats()
   console.log(`[KnowledgeGraph] Tick ${nextTick}: ${graphStats.totalNodes} nodes, ${graphStats.totalEdges} edges`)
 
-  // ===== Phase 4-5: 高级机制系统 =====
+  // ===== Route LLM system_feedback to mechanism systems =====
+  for (const result of npcResults) {
+    const fb = result.systemFeedback
+    if (!fb) continue
+    const agentId = result.agentId
+
+    // Collect witnesses: colocated agents
+    const agent = next.agents.npcs.find(a => a.genetics.seed === agentId)
+    const witnesses = agent
+      ? next.agents.npcs
+          .filter(a => a.genetics.seed !== agentId && a.location === agent.location)
+          .map(a => a.genetics.seed)
+      : []
+
+    if (fb.reputation_impact) {
+      reputationSystem.updateFromLLMFeedback(agentId, fb.reputation_impact, witnesses, nextTick)
+    }
+    if (fb.current_role || fb.role_conflict) {
+      roleSystem.updateFromLLMFeedback(agentId, fb.current_role, fb.role_conflict)
+    }
+    if (fb.resource_action) {
+      resourceSystem.claimFromLLMFeedback(agentId, fb.resource_action)
+    }
+    if (fb.tension_effect) {
+      tensionSystem.updateFromLLMFeedback(agentId, fb.tension_effect, nextTick)
+    }
+    if (fb.meme_spread) {
+      memeSystem.ingestFromLLMFeedback(agentId, fb.meme_spread, nextTick)
+    }
+    if (fb.perceived_bias) {
+      biasSystem.recordBias(agentId, fb.perceived_bias, nextTick)
+    }
+  }
+
+  // ===== Phase 4-5: Advanced mechanism systems =====
   
-  // 1. 声誉系统 - 更新社交网络和应用衰减
+  // 1. Reputation system — update social network and apply decay
   reputationSystem.updateSocialNetwork(next)
   reputationSystem.applyDecay(nextTick)
   const reputationStats = reputationSystem.getStats()
@@ -625,11 +677,11 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[ReputationSystem] Avg trust: ${reputationStats.avg_trustworthiness.toFixed(2)}, Events: ${reputationStats.total_events}`)
   }
   
-  // 2. 社会角色系统 - 为所有 agents 分配角色并写回 agent 状态
+  // 2. Social role system — assign roles to all agents and write back to agent state
   const npcsWithRoles = next.agents.npcs.map(agent => {
     const roles = roleSystem.assignRoles(agent, next)
     roleSystem.detectRoleConflicts(agent)
-    // 将主要角色写入 agent 的 narrative_roles
+    // Write primary role to agent's narrative_roles
     const primaryRole = roles[0]
     if (primaryRole) {
       return {
@@ -655,7 +707,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[RoleSystem] ${roleStats.total_roles} roles, ${roleStats.total_conflicts} conflicts`)
   }
   
-  // 3. 资源竞争系统 - 分配资源
+  // 3. Resource competition system — allocate resources
   const resourceResults = resourceSystem.allocateAllResources(next.agents.npcs)
   resourceSystem.regenerateResources()
   const resourceStats = resourceSystem.getStats()
@@ -663,7 +715,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[ResourceSystem] Scarcity: ${resourceStats.scarcity_avg.toFixed(2)}, Claims: ${resourceStats.total_claims}`)
   }
   
-  // 4. 戏剧张力系统 - 检测和累积张力
+  // 4. Dramatic tension system — detect and accumulate tension
   const newTensions = tensionSystem.detectAndCreateTension(next, uniquePatterns)
   for (const tension of tensionSystem.getActiveTensions()) {
     tensionSystem.buildupTension(tension.id, next.events, nextTick)
@@ -675,8 +727,8 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[TensionSystem] Overall: ${overallTension.toFixed(2)}, Active: ${tensionStats.active_tensions}, Peak: ${tensionStats.peak_tensions}`)
   }
   
-  // 5. 涌现属性检测器 - 检测涌现
-  const worldHistory: WorldSlice[] = []  // TODO: 维护历史窗口
+  // 5. Emergent property detector — detect emergence
+  const worldHistory: WorldSlice[] = []  // TODO: maintain history window
   const emergentProperties = emergenceDetector.detectEmergence(next, worldHistory)
   if (emergentProperties.length > 0) {
     console.log(`[EmergenceDetector] Detected ${emergentProperties.length} emergent properties:`)
@@ -689,13 +741,13 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[EmergenceDetector] Total: ${emergenceStats.total_detected}, Avg novelty: ${emergenceStats.avg_novelty.toFixed(2)}`)
   }
   
-  // 6. 模因传播系统 - 提取和传播模因
-  // 从 agents 提取新模因
-  for (const agent of next.agents.npcs.slice(0, 5)) {  // 每次只从 5 个 agents 提取
+  // 6. Meme propagation system — extract and propagate memes
+  // Extract new memes from agents
+  for (const agent of next.agents.npcs.slice(0, 5)) {  // extract from 5 agents per tick
     const newMemes = memeSystem.extractMemesFromAgent(agent, nextTick)
   }
   
-  // 传播现有模因
+  // Propagate existing memes
   const socialNetwork = new Map<string, Set<string>>()
   for (const agent of next.agents.npcs) {
     const friends = new Set<string>()
@@ -706,11 +758,11 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   }
   
   const allMemes = Array.from(memeSystem.getAllMemes().values())
-  for (const meme of allMemes.slice(0, 10)) {  // 每次只传播 10 个模因
+  for (const meme of allMemes.slice(0, 10)) {  // propagate 10 memes per tick
     memeSystem.propagateMeme(meme, socialNetwork, next.agents.npcs, nextTick)
   }
   
-  // 模因衰减
+  // Meme decay
   memeSystem.decayMemes(nextTick)
   
   const memeStats = memeSystem.getStats()
@@ -718,12 +770,24 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[MemeSystem] Memes: ${memeStats.total_memes}, Transmissions: ${memeStats.successful_transmissions}, Mutation rate: ${(memeStats.mutation_rate * 100).toFixed(1)}%`)
   }
   
-  // 7. 注意力机制 - 分配注意力 + 接入推荐系统
+  // 7. Attention mechanism — allocate attention + integrate recommendation system
+  // Build reputation influences map for attention cross-system feedback
+  const reputationInfluences = new Map<string, number>()
+  for (const agent of next.agents.npcs) {
+    reputationInfluences.set(agent.genetics.seed, reputationSystem.getInfluence(agent.genetics.seed))
+  }
+  // Build active tensions for attention cross-system feedback
+  const activeTensionsForAttention = tensionSystem.getActiveTensions().map(t => ({
+    source: t.source,
+    level: t.level,
+    target_agents: t.target_agents,
+  }))
+
   const npcsWithAttention = await Promise.all(next.agents.npcs.map(async agent => {
-    // 推荐系统为 agent 推荐事件
+    // Recommendation system suggests events for agent
     const recommendedEvents = await recSystem.recommendEvents(agent, next)
 
-    // 将推荐事件转为刺激
+    // Convert recommended events to stimuli
     const recStimuli = recommendedEvents.slice(0, 3).map(evt =>
       attentionMechanism.createStimulus('event', evt.id, `Recommended: ${evt.type}`, {
         salience: 0.8,
@@ -732,16 +796,16 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
       })
     )
 
-    const worldStimuli = attentionMechanism.generateStimuliFromWorld(next, agent)
+    const worldStimuli = attentionMechanism.generateStimuliFromWorld(next, agent, reputationInfluences, activeTensionsForAttention)
     const allStimuli = [...recStimuli, ...worldStimuli]
     const allocations = attentionMechanism.allocateAttention(agent, allStimuli, nextTick)
 
-    // 如果在休息，恢复注意力
+    // If resting, recover attention
     if (agent.vitals.energy > 0.7 && agent.vitals.stress < 0.3) {
       attentionMechanism.recoverAttention(agent)
     }
 
-    // 将注意力分配结果写回 agent 的 focus
+    // Write attention allocation results back to agent's focus
     const topFocus = allocations[0]
     const focusBoost = topFocus ? topFocus.weight * 0.1 : 0
     return {
@@ -758,7 +822,7 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[AttentionMechanism] Avg focus: ${attentionStats.avg_focus_count.toFixed(1)}/${attentionStats.avg_capacity.toFixed(1)}, Fatigue: ${(attentionStats.avg_fatigue * 100).toFixed(1)}%`)
   }
   
-  // 8. 分层记忆系统 - 为每个 agent 管理记忆（按需初始化）
+  // 8. Hierarchical memory system — manage memory per agent (lazy init)
   for (const agent of next.agents.npcs) {
     if (!globalMemorySystems.has(agent.genetics.seed)) {
       const memorySystem = new HierarchicalMemorySystem()
@@ -768,39 +832,39 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     
     const memorySystem = globalMemorySystems.get(agent.genetics.seed)!
     
-    // 应用衰减和巩固
+    // Apply decay and consolidation
     memorySystem.applyDecay(nextTick)
     
-    // 导出回 agent（保持兼容性）
+    // Export back to agent (maintain compatibility)
     const exported = memorySystem.exportToAgent()
     agent.memory_short = exported.memory_short
     agent.memory_long = exported.memory_long
   }
   
-  // 记忆系统统计（采样）
+  // Memory system stats (sampled)
   if (nextTick % 10 === 0 && globalMemorySystems.size > 0) {
     const sampleSystem = Array.from(globalMemorySystems.values())[0]
     const memStats = sampleSystem.getStats()
     console.log(`[MemorySystem] WM: ${memStats.working_memory.count}/${memStats.working_memory.capacity}, STM: ${memStats.short_term_memory.count}/${memStats.short_term_memory.capacity}, LTM: ${memStats.long_term_memory.count}`)
   }
   
-  // 更新 next 的 agents + 导出所有系统状态到 next.systems
+  // Update next's agents + export all system states to next.systems
   next = {
     ...next,
     agents: {
       ...next.agents,
       npcs: npcsWithAttention
     },
-    systems: exportSystemsState(updatedKnowledgeGraph),
+    systems: exportSystemsState(knowledgeGraph),
   }
 
   // ===== Auto-spawn new agents when population drops =====
-  // 触发条件：NPC 死亡导致人数不足 / 每 20 tick 检查一次是否需要新势力
+  // Trigger: NPC deaths cause underpopulation / check every 20 ticks for new arrivals
   const aliveCount = next.agents.npcs.filter(a => a.life_status === 'alive').length
   const shouldSpawn = (
-    // 有人死了，人数低于初始的 70%
+    // Deaths caused population to drop below threshold
     (aliveCount < 10 && nextTick > 5) ||
-    // 每 20 tick 有 30% 概率引入新角色（模拟外来者/新势力）
+    // Every 20 ticks, 30% chance to introduce new characters (outsiders/new factions)
     (nextTick % 20 === 0 && Math.random() < 0.3 && aliveCount < 25)
   )
 
@@ -860,10 +924,10 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     }
   }
 
-  // ===== 世界状态演进 - 让事件反馈到世界 =====
+  // ===== World state evolution — feed events back into the world =====
   next = evolveWorldState(next, patch)
 
-  // ===== Tick 总结 — 收集所有 agent 本轮行为描述 =====
+  // ===== Tick summary — collect all agent behavior descriptions for this tick =====
   const tickBehaviors = npcResults
     .map(r => {
       const agent = next.agents.npcs.find(a => a.genetics.seed === r.agentId)
