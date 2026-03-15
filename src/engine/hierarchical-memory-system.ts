@@ -4,7 +4,7 @@
  * 兼容现有的 memory_short 和 memory_long
  */
 
-import type { PersonalAgentState, Memory } from '@/domain/world'
+import type { PersonalAgentState, MemoryRecord } from '@/domain/world'
 
 export type WorkingMemory = {
   id: string
@@ -15,13 +15,13 @@ export type WorkingMemory = {
   expires_at: number  // 过期时间（tick）
 }
 
-export type ShortTermMemory = Memory & {
+export type ShortTermMemory = MemoryRecord & {
   consolidation_score: number  // 巩固分数 [0-1]
   rehearsal_count: number  // 复述次数
   last_accessed: number  // 最后访问时间
 }
 
-export type LongTermMemory = Memory & {
+export type LongTermMemory = MemoryRecord & {
   schema_tags: string[]  // 图式标签
   episodic_context?: {  // 情景上下文
     location?: string
@@ -121,7 +121,7 @@ export class HierarchicalMemorySystem {
     content: string,
     importance: number,
     emotional_weight: number,
-    source: Memory['source'],
+    source: MemoryRecord['source'],
     currentTick: number
   ): ShortTermMemory {
     // 检查容量
@@ -199,7 +199,7 @@ export class HierarchicalMemorySystem {
       keywords?: string[]
       importance_min?: number
       emotion_range?: [number, number]
-      source?: Memory['source']
+      source?: MemoryRecord['source']
       tags?: string[]
       time_range?: [number, number]
     },
@@ -256,7 +256,7 @@ export class HierarchicalMemorySystem {
     
     // 关键词匹配
     if (query.keywords) {
-      const matchCount = query.keywords.filter(kw =>
+      const matchCount = query.keywords.filter((kw: string) =>
         memory.content.toLowerCase().includes(kw.toLowerCase())
       ).length
       score += (matchCount / query.keywords.length) * 0.4
@@ -284,7 +284,7 @@ export class HierarchicalMemorySystem {
     
     // 标签匹配（长期记忆）
     if (query.tags && 'schema_tags' in memory) {
-      const matchCount = query.tags.filter(tag =>
+      const matchCount = query.tags.filter((tag: string) =>
         memory.schema_tags.includes(tag)
       ).length
       score += (matchCount / query.tags.length) * 0.3
@@ -402,12 +402,12 @@ export class HierarchicalMemorySystem {
   private removeFromIndex(id: string): void {
     // 从所有索引中移除
     for (const index of Object.values(this.memoryIndex)) {
-      for (const [key, list] of index) {
+      for (const [key, list] of (index as Map<string, string[]>)) {
         const filtered = list.filter(memId => memId !== id)
         if (filtered.length > 0) {
-          index.set(key, filtered)
+          (index as Map<string, string[]>).set(key, filtered)
         } else {
-          index.delete(key)
+          (index as Map<string, string[]>).delete(key)
         }
       }
     }
@@ -474,8 +474,8 @@ export class HierarchicalMemorySystem {
    * 导出到 agent 格式（兼容性）
    */
   exportToAgent(): {
-    memory_short: Memory[]
-    memory_long: Memory[]
+    memory_short: MemoryRecord[]
+    memory_long: MemoryRecord[]
   } {
     return {
       memory_short: Array.from(this.shortTermMemory.values()).map(stm => ({

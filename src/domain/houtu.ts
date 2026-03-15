@@ -98,7 +98,7 @@ export function judgeLife(
   }
   
   // 根据角色类型判定重要性
-  if (agent.role === 'npc' && Math.random() > 0.95) {
+  if ((agent as any).role === 'npc' && Math.random() > 0.95) {
     // NPC 有小概率自然消失
     return {
       agent_seed: agent.genetics.seed,
@@ -140,9 +140,9 @@ export function decideReincarnation(
   }
   
   // 主要人物更容易轮回
-  const reincarnationChance = 
-    agent.role === 'protagonist' ? 0.8 :
-    agent.role === 'supporting' ? 0.5 :
+  const reincarnationChance =
+    (agent as any).role === 'protagonist' ? 0.8 :
+    (agent as any).role === 'supporting' ? 0.5 :
     0.2  // NPC
   
   if (Math.random() > reincarnationChance) {
@@ -153,9 +153,9 @@ export function decideReincarnation(
   }
   
   // 决定轮回后的角色
-  const newRole = 
-    agent.role === 'protagonist' ? 'supporting' :  // 主角降级为配角
-    agent.role === 'supporting' ? 'npc' :          // 配角降级为 NPC
+  const newRole =
+    (agent as any).role === 'protagonist' ? 'supporting' :  // 主角降级为配角
+    (agent as any).role === 'supporting' ? 'npc' :          // 配角降级为 NPC
     'npc'
   
   // 保留部分记忆和关系

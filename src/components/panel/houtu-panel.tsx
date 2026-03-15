@@ -63,7 +63,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
                       )}
                     </div>
                     <div className="mt-1 text-xs text-slate-600">
-                      角色: {agent.role === 'protagonist' ? '主角' : agent.role === 'supporting' ? '配角' : 'NPC'}
+                      角色: {(agent as any).role === 'protagonist' ? '主角' : (agent as any).role === 'supporting' ? '配角' : 'NPC'}
                       {' · '}
                       衰老: {Math.floor(agent.vitals.aging_index * 100)}%
                       {' · '}

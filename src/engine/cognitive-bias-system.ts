@@ -298,7 +298,7 @@ export class CognitiveBiasSystem {
     
     if (friends.length >= 3) {
       // Assume friends tend to cooperate
-      if (decision.type !== 'cooperate' && decision.type !== 'help') {
+      if ((decision.type as string) !== 'cooperate' && decision.type !== 'help') {
         return {
           bias_type: 'groupthink',
           applied: true,
@@ -324,7 +324,7 @@ export class CognitiveBiasSystem {
     const { history } = context
     
     // If been pursuing a goal for a while, continue even if unreasonable
-    const pursuingGoal = history.filter(a => a.type === 'pursue_goal').length
+    const pursuingGoal = history.filter((a: AgentAction) => a.type === 'pursue_goal').length
     
     if (pursuingGoal >= 3 && decision.type !== 'pursue_goal') {
       return {

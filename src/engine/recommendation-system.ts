@@ -145,7 +145,7 @@ export class RecommendationSystem {
    */
   private calculateNarrativeScore(
     event: WorldEvent,
-    narratives: typeof import('@/domain/narrative').NarrativePattern[],
+    narratives: import('@/domain/narrative').NarrativePattern[],
     world: WorldSlice
   ): number {
     let maxScore = 0

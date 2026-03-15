@@ -292,7 +292,7 @@ export function canUseCapability(
   }
   
   // 检查角色要求
-  if (capability.requires?.role && !capability.requires.role.includes(agent.role)) {
+  if (capability.requires?.role && !capability.requires.role.includes((agent as any).role)) {
     return { allowed: false, reason: '角色不符' }
   }
   

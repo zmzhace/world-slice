@@ -41,7 +41,7 @@ export class AttentionMechanism {
    */
   initializeAttention(agent: PersonalAgentState): AttentionState {
     // Capacity based on personality
-    const capacity = this.BASE_CAPACITY + Math.floor(agent.persona.focus * 2)
+    const capacity = this.BASE_CAPACITY + Math.floor(agent.persona.stability * 2)
     
     const state: AttentionState = {
       agent_id: agent.genetics.seed,

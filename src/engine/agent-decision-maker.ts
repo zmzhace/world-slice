@@ -455,7 +455,7 @@ export class AgentDecisionMaker {
     
     if (action.type === 'compete' && action.target) {
       // 竞争可能恶化关系，但可能实现目标
-      const hasConflictGoal = agent.goals.some(g => g.includes(action.target))
+      const hasConflictGoal = agent.goals.some(g => g.includes(action.target!))
       if (hasConflictGoal) {
         score += 2  // 符合目标
       } else {

@@ -169,7 +169,7 @@ export class VectorDatabase {
     
     return {
       pointsCount: info.points_count || 0,
-      vectorsCount: info.vectors_count || 0
+      vectorsCount: (info as any).vectors_count || 0
     }
   }
   
