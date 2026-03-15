@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { listWorlds, deleteWorld } from '@/store/worlds'
+import { Plus, Trash2, Globe, Clock, ChevronRight } from 'lucide-react'
 
 export default function WorldsPage() {
   const [worlds, setWorlds] = React.useState<ReturnType<typeof listWorlds>>([])
@@ -23,10 +24,10 @@ export default function WorldsPage() {
 
   if (!mounted) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+      <main className="min-h-screen bg-black p-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-slate-900">世界列表</h1>
+            <h1 className="text-3xl font-bold text-white">World Slice</h1>
           </div>
         </div>
       </main>
@@ -34,89 +35,93 @@ export default function WorldsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <main className="min-h-screen bg-black p-6 md:p-8">
       <div className="mx-auto max-w-6xl">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">世界列表</h1>
-            <p className="mt-2 text-slate-600">探索和管理你的涌现式世界</p>
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              World Slice
+            </h1>
+            <p className="mt-1.5 text-sm text-neutral-500">
+              Explore and manage your emergent worlds
+            </p>
           </div>
           <Link
             href="/worlds/new"
-            className="group flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:scale-105"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-blue-500 active:scale-[0.97]"
           >
-            <span className="text-xl">✨</span>
-            <span>创建新世界</span>
+            <Plus className="h-4 w-4" />
+            <span>Create World</span>
           </Link>
         </div>
 
+        {/* Content */}
         {worlds.length === 0 ? (
-          <div className="mt-12 rounded-2xl border-2 border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
-            <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mb-6">
-              <span className="text-4xl">🌍</span>
+          /* Empty state */
+          <div className="mt-16 flex flex-col items-center justify-center text-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-white/[0.06] bg-[#141414]">
+              <Globe className="h-9 w-9 text-neutral-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">还没有世界</h2>
-            <p className="mt-3 text-slate-600 max-w-md mx-auto">
-              开始创建你的第一个涌现式世界，让 AI agents 自由互动，故事自然涌现
+            <h2 className="text-xl font-semibold text-white">
+              No worlds yet
+            </h2>
+            <p className="mt-2 max-w-sm text-sm leading-relaxed text-neutral-500">
+              Create your first world and let AI agents interact freely as stories emerge naturally.
             </p>
             <Link
               href="/worlds/new"
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:scale-105"
+              className="mt-8 flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-blue-500 active:scale-[0.97]"
             >
-              <span>开始创建</span>
-              <span>→</span>
+              <Plus className="h-4 w-4" />
+              <span>Create your first world</span>
             </Link>
           </div>
         ) : (
-          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          /* World cards grid */
+          <div className="mt-8 grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {worlds.map((world) => (
               <Link
                 key={world.id}
                 href={`/worlds/${world.id}`}
-                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-xl hover:scale-105 hover:border-blue-300"
+                className="group relative rounded-xl border border-white/[0.08] bg-[#141414] p-5 transition-all duration-200 hover:border-white/[0.15] hover:shadow-[0_0_30px_rgba(59,130,246,0.06)]"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
-                
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl shadow-md">
-                      🌍
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                        活跃
-                      </span>
-                      <button
-                        onClick={(e) => handleDelete(world.id, e)}
-                        className="rounded-full p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                        title="删除世界"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-lg font-bold text-slate-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-medium leading-snug text-neutral-200 line-clamp-2 group-hover:text-white transition-colors">
                     {world.worldPrompt}
                   </h3>
-                  
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <span>📅</span>
+                  <button
+                    onClick={(e) => handleDelete(world.id, e)}
+                    className="shrink-0 rounded-md p-1.5 text-neutral-600 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                    title="Delete world"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mt-4 flex items-center gap-4 text-xs text-neutral-500">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
                     <time dateTime={world.createdAt}>
-                      {new Date(world.createdAt).toLocaleDateString('zh-CN', {
+                      {new Date(world.createdAt).toLocaleDateString(undefined, {
                         year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                        month: 'short',
+                        day: 'numeric',
                       })}
                     </time>
-                  </div>
-                  
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-sm">
-                    <span className="text-slate-600">点击进入世界</span>
-                    <span className="text-blue-600 group-hover:translate-x-1 transition-transform">→</span>
-                  </div>
+                  </span>
+                  {world.worldSnapshot && world.worldSnapshot.tick > 0 && (
+                    <span className="text-neutral-600">
+                      Tick {world.worldSnapshot.tick}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3">
+                  <span className="text-xs text-neutral-600 group-hover:text-neutral-400 transition-colors">
+                    Enter world
+                  </span>
+                  <ChevronRight className="h-3.5 w-3.5 text-neutral-600 transition-transform group-hover:translate-x-0.5 group-hover:text-neutral-400" />
                 </div>
               </Link>
             ))}

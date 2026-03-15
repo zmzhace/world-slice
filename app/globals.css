@@ -2,11 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Dark OLED foundation ── */
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #000;
+  color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Custom scrollbar ── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0a0a0a;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ── Utility classes ── */
+
+@layer utilities {
+  .glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glow {
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.15),
+                0 0 4px rgba(37, 99, 235, 0.1);
+  }
+}
+
+/* ── Smooth transitions for interactive elements ── */
+
+@layer base {
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    transition: color 150ms ease, background-color 150ms ease,
+                border-color 150ms ease, box-shadow 200ms ease,
+                opacity 150ms ease;
+  }
 }

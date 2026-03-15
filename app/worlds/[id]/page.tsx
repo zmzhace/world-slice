@@ -15,18 +15,48 @@ import { SystemStatsPanel } from '@/components/panel/system-stats-panel'
 import { createInitialWorldSlice } from '@/domain/world'
 import { getWorld } from '@/store/worlds'
 import { runWorldTick } from '@/engine/orchestrator'
+import {
+  ArrowLeft,
+  Play,
+  Pause,
+  SkipForward,
+  Clock,
+  Globe,
+  Users,
+  UserPlus,
+  BookOpen,
+  Share2,
+  Calendar,
+  RefreshCw,
+  Scroll,
+  BarChart3,
+} from 'lucide-react'
+
+const TABS = [
+  { key: 'world', label: 'World', icon: Globe },
+  { key: 'observer', label: 'Agents', icon: Users },
+  { key: 'agents', label: 'Create', icon: UserPlus },
+  { key: 'narratives', label: 'Narrative', icon: BookOpen },
+  { key: 'social', label: 'Network', icon: Share2 },
+  { key: 'timeline', label: 'Timeline', icon: Calendar },
+  { key: 'houtu', label: 'Life Cycle', icon: RefreshCw },
+  { key: 'events', label: 'Events', icon: Scroll },
+  { key: 'stats', label: 'Stats', icon: BarChart3 },
+] as const
+
+type TabKey = (typeof TABS)[number]['key']
 
 export default function WorldDetailPage() {
   const params = useParams()
   const router = useRouter()
   const worldId = params.id as string
-  
+
   const [worldRecord, setWorldRecord] = React.useState<ReturnType<typeof getWorld> | undefined>(undefined)
   const [world, setWorld] = React.useState<ReturnType<typeof createInitialWorldSlice> | null>(null)
-  const [activeTab, setActiveTab] = React.useState<'world' | 'agents' | 'narratives' | 'social' | 'timeline' | 'houtu' | 'observer' | 'events' | 'stats'>('world')
+  const [activeTab, setActiveTab] = React.useState<TabKey>('world')
   const [advancing, setAdvancing] = React.useState(false)
   const [autoAdvancing, setAutoAdvancing] = React.useState(false)
-  const [autoAdvanceTicks, setAutoAdvanceTicks] = React.useState<number>(10) // 推进多少个 tick
+  const [autoAdvanceTicks, setAutoAdvanceTicks] = React.useState<number>(10)
 
   React.useEffect(() => {
     setWorldRecord(getWorld(worldId))
@@ -34,7 +64,6 @@ export default function WorldDetailPage() {
 
   React.useEffect(() => {
     if (worldRecord) {
-      // Try to load world from localStorage
       const savedWorld = localStorage.getItem(`world_${worldId}`)
       if (savedWorld) {
         try {
@@ -43,13 +72,11 @@ export default function WorldDetailPage() {
           console.log('Loaded world from localStorage:', world)
         } catch (error) {
           console.error('Failed to parse saved world:', error)
-          // Fallback to initial world
           const initialWorld = createInitialWorldSlice()
           initialWorld.world_id = worldId
           setWorld(initialWorld)
         }
       } else {
-        // Fallback to initial world if not found
         const initialWorld = createInitialWorldSlice()
         initialWorld.world_id = worldId
         setWorld(initialWorld)
@@ -59,33 +86,29 @@ export default function WorldDetailPage() {
 
   const handleAdvanceTime = async () => {
     if (!world || advancing) return
-    
+
     setAdvancing(true)
     try {
       console.log('Advancing time...')
-      // Create a simple directorRegistry to execute NPC agents
       const directorRegistry = {
-        runAll: async () => [] // Return empty array, let NPC agents execute themselves
+        runAll: async () => []
       }
 
       const nextWorld = await runWorldTick(world, { directorRegistry })
-      
-      // Save to localStorage
+
       localStorage.setItem(`world_${worldId}`, JSON.stringify(nextWorld))
-      
-      // Update state
+
       setWorld(nextWorld)
       console.log('Time advanced to tick', nextWorld.tick)
     } catch (error) {
       console.error('Failed to advance time:', error)
-      alert('推进时间失败: ' + (error as Error).message)
-      setAutoAdvancing(false) // 出错时停止自动推进
+      alert('Failed to advance time: ' + (error as Error).message)
+      setAutoAdvancing(false)
     } finally {
       setAdvancing(false)
     }
   }
 
-  // 自动推进效果 - 按 tick 数推进
   React.useEffect(() => {
     if (!autoAdvancing || !world || world.agents.npcs.length === 0) return
 
@@ -95,11 +118,10 @@ export default function WorldDetailPage() {
         setAutoAdvancing(false)
         return
       }
-      
+
       await handleAdvanceTime()
       ticksAdvanced++
-      
-      // 继续推进下一个 tick（延迟 500ms 让 UI 更新）
+
       if (ticksAdvanced < autoAdvanceTicks && autoAdvancing) {
         setTimeout(advanceNextTick, 500)
       }
@@ -107,9 +129,8 @@ export default function WorldDetailPage() {
 
     advanceNextTick()
 
-    // 清理函数
     return () => {
-      ticksAdvanced = autoAdvanceTicks // 停止推进
+      ticksAdvanced = autoAdvanceTicks
     }
   }, [autoAdvancing])
 
@@ -117,16 +138,18 @@ export default function WorldDetailPage() {
     setAutoAdvancing(!autoAdvancing)
   }
 
+  // --- Loading / Not Found states ---
+
   if (!worldRecord) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-2xl font-semibold text-slate-200">
             {worldRecord === undefined ? 'Loading world...' : 'World not found'}
           </h1>
           {worldRecord === null && (
-            <p className="mt-2 text-sm text-slate-600">
-              The world you're looking for doesn't exist.
+            <p className="mt-2 text-sm text-slate-500">
+              The world you are looking for does not exist.
             </p>
           )}
         </div>
@@ -136,221 +159,168 @@ export default function WorldDetailPage() {
 
   if (!world) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold">Loading world...</h1>
+          <h1 className="text-2xl font-semibold text-slate-200">Loading world...</h1>
         </div>
       </main>
     )
   }
 
+  // --- Main render ---
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* 顶部控制栏 */}
-      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-lg shadow-sm">
-        <div className="mx-auto max-w-7xl px-8 py-4">
+    <main className="min-h-screen bg-[#0a0a0f] text-slate-200">
+      {/* ===== Header / Top Bar ===== */}
+      <div className="sticky top-0 z-10 border-b border-white/[0.06] bg-white/[0.03] backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-6 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            {/* Left: back + title */}
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push('/worlds')}
-                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+                className="flex items-center justify-center rounded-lg p-2 text-slate-400 transition-all duration-200 hover:bg-white/[0.06] hover:text-slate-200 cursor-pointer"
+                aria-label="Back"
               >
-                <span>←</span>
-                <span className="hidden sm:inline">返回</span>
+                <ArrowLeft className="h-5 w-5" />
               </button>
-              <div className="h-6 w-px bg-slate-300" />
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">World Slice</h1>
-                <p className="text-xs text-slate-600 line-clamp-1">{worldRecord.worldPrompt}</p>
+
+              <div className="h-6 w-px bg-white/[0.08]" />
+
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold text-slate-100">
+                  World Slice
+                </h1>
+                <p className="truncate text-xs text-slate-500 max-w-[260px]">
+                  {worldRecord.worldPrompt}
+                </p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Tick 显示 */}
-              <div className="hidden sm:flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2">
-                <span className="text-xs font-medium text-slate-600">Tick</span>
-                <span className="text-sm font-bold text-slate-900">{world?.tick || 0}</span>
+
+            {/* Right: tick controls */}
+            <div className="flex items-center gap-2">
+              {/* Tick badge */}
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5">
+                <Clock className="h-3.5 w-3.5 text-slate-400" />
+                <span className="text-xs font-medium text-slate-400">Tick</span>
+                <span className="min-w-[1.5rem] text-center text-sm font-bold text-slate-100">
+                  {world?.tick || 0}
+                </span>
               </div>
-              
-              {/* 自动推进控制 */}
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+
+              {/* Auto-advance tick count */}
+              <div className="flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5">
                 <input
                   type="number"
                   min="1"
                   max="100"
                   value={autoAdvanceTicks}
                   onChange={(e) => setAutoAdvanceTicks(Math.max(1, parseInt(e.target.value) || 10))}
-                  className="w-12 rounded border-slate-200 px-2 py-1 text-xs text-center focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-100"
+                  className="w-10 rounded bg-transparent px-1 py-0.5 text-xs text-center text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   disabled={autoAdvancing}
                 />
-                <span className="text-xs text-slate-600 hidden sm:inline">Ticks</span>
+                <span className="text-xs text-slate-500 hidden sm:inline">ticks</span>
               </div>
-              
+
+              {/* Auto-advance toggle */}
               <button
                 onClick={toggleAutoAdvance}
                 disabled={!world || world.agents.npcs.length === 0 || advancing}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
-                  autoAdvancing 
-                    ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
-                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+                  autoAdvancing
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
                 }`}
-                title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
               >
-                <span>{autoAdvancing ? '⏸️' : '▶️'}</span>
-                <span className="hidden sm:inline">{autoAdvancing ? '停止' : '自动'}</span>
+                {autoAdvancing ? (
+                  <Pause className="h-3.5 w-3.5" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">{autoAdvancing ? 'Stop' : 'Auto'}</span>
               </button>
-              
+
+              {/* Single tick advance */}
               <button
                 onClick={handleAdvanceTime}
                 disabled={advancing || !world || world.agents.npcs.length === 0 || autoAdvancing}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                title={world?.agents.npcs.length === 0 ? '需要先初始化世界' : ''}
+                className="flex items-center gap-1.5 rounded-full bg-blue-500/20 px-3.5 py-1.5 text-sm font-medium text-blue-400 transition-all duration-200 hover:bg-blue-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
-                <span>⏩</span>
-                <span className="hidden sm:inline">{advancing ? '推进中...' : '+1 Tick'}</span>
+                <SkipForward className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{advancing ? 'Running...' : '+1 Tick'}</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tick 总结 — 本轮发生了什么 */}
+      {/* ===== Tick Summary / Chronicle ===== */}
       {world.tick_summary && (
-        <div className="mx-auto max-w-7xl px-8 pt-4">
-          <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-sm font-semibold text-amber-800">Tick {world.tick} 纪事</span>
+        <div className="mx-auto max-w-7xl px-6 pt-5">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 border-l-2 border-l-blue-500/60">
+            <div className="mb-3 flex items-center gap-2.5">
+              <span className="text-base font-semibold text-slate-100" style={{ textShadow: '0 0 20px rgba(96,165,250,0.3)' }}>
+                Tick {world.tick}
+              </span>
+              <div className="h-px flex-1 bg-gradient-to-r from-white/[0.06] to-transparent" />
             </div>
-            <div className="space-y-1 text-sm text-amber-900 leading-relaxed whitespace-pre-line">
+            <div className="text-base leading-relaxed text-slate-300 whitespace-pre-line">
               {world.tick_summary}
             </div>
           </div>
         </div>
       )}
 
-      {/* 主内容区 */}
-      <div className="mx-auto max-w-7xl p-8">
-        <div className="grid gap-6 lg:grid-cols-2">
-        <ChatShell world={world} onWorldUpdate={setWorld} />
-        <div>
-          {/* Tab Navigation */}
-          <div className="mb-4 flex gap-2 border-b">
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'world'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('world')}
-            >
-              世界信息
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'observer'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('observer')}
-            >
-              🔍 Agent 观察
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'agents'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('agents')}
-            >
-              Create Agents
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'narratives'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('narratives')}
-            >
-              📖 涌现叙事
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'social'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('social')}
-            >
-              🕸️ 社交网络
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'timeline'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('timeline')}
-            >
-              ⏱️ 叙事时间线
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'houtu'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('houtu')}
-            >
-              后土轮回
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'events'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('events')}
-            >
-              事件日志
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'stats'
-                  ? 'border-b-2 border-slate-900 text-slate-900'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              onClick={() => setActiveTab('stats')}
-            >
-              📊 系统统计
-            </button>
+      {/* ===== Main Content ===== */}
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="grid gap-5 lg:grid-cols-12">
+          {/* Chat column */}
+          <div className="lg:col-span-5">
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03]">
+              <ChatShell world={world} onWorldUpdate={setWorld} />
+            </div>
           </div>
 
-          {/* Tab Content */}
-          {activeTab === 'world' && <PanelShell world={world} />}
-          {activeTab === 'observer' && <AgentObserverPanel world={world} />}
-          {activeTab === 'agents' && (
-            <AgentGeneratorPanel 
-              worldId={worldId} 
-              world={world}
-              onWorldUpdate={setWorld}
-            />
-          )}
-          {activeTab === 'narratives' && (
-            <NarrativePanel world={world} />
-          )}
-          {activeTab === 'social' && (
-            <SocialNetworkPanel world={world} />
-          )}
-          {activeTab === 'timeline' && (
-            <NarrativeTimelinePanel world={world} />
-          )}
-          {activeTab === 'houtu' && <HoutuPanel world={world} />}
-          {activeTab === 'events' && <EventsPanel world={world} />}
-          {activeTab === 'stats' && <SystemStatsPanel world={world} />}
+          {/* Tabs column */}
+          <div className="lg:col-span-7">
+            {/* Tab Navigation */}
+            <div className="mb-4 flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+              {TABS.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 cursor-pointer ${
+                    activeTab === key
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-200'
+                  }`}
+                  onClick={() => setActiveTab(key)}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03]">
+              {activeTab === 'world' && <PanelShell world={world} />}
+              {activeTab === 'observer' && <AgentObserverPanel world={world} />}
+              {activeTab === 'agents' && (
+                <AgentGeneratorPanel
+                  worldId={worldId}
+                  world={world}
+                  onWorldUpdate={setWorld}
+                />
+              )}
+              {activeTab === 'narratives' && <NarrativePanel world={world} />}
+              {activeTab === 'social' && <SocialNetworkPanel world={world} />}
+              {activeTab === 'timeline' && <NarrativeTimelinePanel world={world} />}
+              {activeTab === 'houtu' && <HoutuPanel world={world} />}
+              {activeTab === 'events' && <EventsPanel world={world} />}
+              {activeTab === 'stats' && <SystemStatsPanel world={world} />}
+            </div>
+          </div>
         </div>
-      </div>
       </div>
     </main>
   )

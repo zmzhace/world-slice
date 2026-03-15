@@ -3,6 +3,7 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import { createWorld } from '@/store/worlds'
+import { ArrowLeft, Loader2, Mountain, Users, Swords, Pen } from 'lucide-react'
 
 export default function NewWorldPage() {
   const router = useRouter()
@@ -24,9 +25,9 @@ export default function NewWorldPage() {
       const response = await fetch('/api/worlds/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           worldPrompt: prompt,
-          worldId: worldRecord.id 
+          worldId: worldRecord.id
         }),
       })
 
@@ -37,10 +38,10 @@ export default function NewWorldPage() {
 
       const data = await response.json()
       console.log('World initialized:', data.summary)
-      
+
       // Save generated world to localStorage
       localStorage.setItem(`world_${worldRecord.id}`, JSON.stringify(data.world))
-      
+
       router.push(`/worlds/${worldRecord.id}`)
     } catch (error) {
       console.error('Failed to create world:', error)
@@ -49,113 +50,134 @@ export default function NewWorldPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8">
-          <button
-            onClick={() => router.push('/worlds')}
-            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
-          >
-            <span>←</span>
-            <span>返回世界列表</span>
-          </button>
-        </div>
+  const tips = [
+    {
+      icon: Mountain,
+      title: 'Environment',
+      description: 'Geography, climate, terrain, and natural surroundings',
+    },
+    {
+      icon: Users,
+      title: 'Society',
+      description: 'Culture, institutions, power dynamics, and social order',
+    },
+    {
+      icon: Swords,
+      title: 'Conflict',
+      description: 'Core tensions, opposing forces, and sources of pressure',
+    },
+    {
+      icon: Pen,
+      title: 'Narrative Tone',
+      description: 'Overall atmosphere, style, and thematic direction',
+    },
+  ]
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+  return (
+    <main className="min-h-screen bg-black p-6 md:p-8">
+      <div className="mx-auto max-w-2xl">
+        {/* Back button */}
+        <button
+          onClick={() => router.push('/worlds')}
+          className="mb-8 flex items-center gap-2 text-sm text-neutral-500 transition-colors hover:text-neutral-300"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to worlds</span>
+        </button>
+
+        {/* Form card */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141414] p-6 md:p-8">
+          {/* Header */}
           <div className="mb-8 text-center">
-            <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl shadow-lg mb-4">
-              ✨
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900">创建新世界</h1>
-            <p className="mt-3 text-slate-600 max-w-xl mx-auto">
-              描述你想要创建的世界，AI 将生成初始环境、社会背景和 5-10 个个性化 agents
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Create New World
+            </h1>
+            <p className="mt-2 text-sm text-neutral-500">
+              Describe the world you want to create. AI will generate the initial environment, social context, and personalized agents.
             </p>
           </div>
 
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="prompt" className="block text-sm font-semibold text-slate-900 mb-2">
-                世界描述
+              <label
+                htmlFor="prompt"
+                className="mb-2 block text-sm font-medium text-neutral-300"
+              >
+                World Description
               </label>
               <textarea
                 id="prompt"
                 rows={6}
-                className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-                placeholder="例如：一个平静的海边小镇，居民们过着简单的生活...&#10;&#10;或者：南疆蛊师世界，充满神秘的蛊虫和修炼者..."
+                className="w-full rounded-lg border border-white/[0.08] bg-black px-4 py-3 text-sm text-neutral-200 placeholder-neutral-600 transition-all focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                placeholder="A quiet coastal town where residents live simple lives...&#10;&#10;Or: A cyberpunk megacity governed by rival AI factions..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={creating}
               />
-              <p className="mt-2 text-xs text-slate-500">
-                💡 提示：描述越详细，生成的世界越丰富。可以包括环境、文化、社会结构等。
+              <p className="mt-2 text-xs text-neutral-600">
+                The more detail you provide, the richer the generated world will be.
               </p>
             </div>
 
+            {/* Loading state */}
             {creating && (
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="animate-spin text-2xl">⚙️</div>
+                  <Loader2 className="mt-0.5 h-5 w-5 animate-spin text-blue-400" />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-blue-900 mb-1">正在创建世界...</h3>
-                    <div className="space-y-1 text-sm text-blue-700">
-                      <p>🌍 Generating world state...</p>
-                      <p>👥 Creating personalized agents...</p>
-                      <p>✨ Preparing emergent narrative system...</p>
+                    <h3 className="text-sm font-medium text-blue-300">
+                      Generating world...
+                    </h3>
+                    <div className="mt-2 space-y-1 text-xs text-blue-400/70">
+                      <p>Creating world state and environment...</p>
+                      <p>Generating personalized agents...</p>
+                      <p>Preparing emergent narrative system...</p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                disabled={creating || !prompt.trim()}
-              >
-                {creating ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="animate-spin">⚙️</span>
-                    <span>创建中...</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <span>✨</span>
-                    <span>开始创建</span>
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="rounded-xl border-2 border-slate-200 px-6 py-4 text-base font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
-                onClick={() => router.push('/worlds')}
-                disabled={creating}
-              >
-                取消
-              </button>
-            </div>
+            {/* Submit button */}
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-medium text-white transition-all hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-blue-600 disabled:active:scale-100"
+              disabled={creating || !prompt.trim()}
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Creating...</span>
+                </>
+              ) : (
+                <span>Create World</span>
+              )}
+            </button>
           </form>
 
-          <div className="mt-8 pt-8 border-t border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-900 mb-3">💡 创建提示</h3>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <h4 className="text-xs font-semibold text-slate-700 mb-1">🏔️ 环境设定</h4>
-                <p className="text-xs text-slate-600">描述地理、气候、地形等自然环境</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <h4 className="text-xs font-semibold text-slate-700 mb-1">🏛️ 社会结构</h4>
-                <p className="text-xs text-slate-600">描述文化、制度、权力关系等</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <h4 className="text-xs font-semibold text-slate-700 mb-1">⚡ 核心冲突</h4>
-                <p className="text-xs text-slate-600">描述主要矛盾、压力来源等</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <h4 className="text-xs font-semibold text-slate-700 mb-1">🎭 叙事基调</h4>
-                <p className="text-xs text-slate-600">描述整体氛围、风格、主题等</p>
-              </div>
+          {/* Tips grid */}
+          <div className="mt-8 border-t border-white/[0.06] pt-8">
+            <h3 className="mb-4 text-xs font-medium uppercase tracking-wider text-neutral-500">
+              Tips for a great world
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {tips.map((tip) => (
+                <div
+                  key={tip.title}
+                  className="rounded-lg border border-white/[0.06] bg-black/40 p-3.5"
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <tip.icon className="h-4 w-4 text-neutral-500" />
+                    <h4 className="text-xs font-medium text-neutral-300">
+                      {tip.title}
+                    </h4>
+                  </div>
+                  <p className="text-xs leading-relaxed text-neutral-600">
+                    {tip.description}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
