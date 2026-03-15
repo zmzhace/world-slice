@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { generateInitialWorld } from '@/server/llm/world-generator'
 import { generatePersonalAgents } from '@/server/llm/agent-generator'
+import { createAnthropicClient, getModel, streamText } from '@/server/llm/anthropic'
 
 /**
  * Full world initialization flow (emergent):
  * 1. Generate initial world state
  * 2. Create initial agents
- * 3. Let agents interact freely, stories emerge naturally
+ * 3. Generate opening narration (tick 0 prologue)
  */
 export async function POST(request: Request) {
   try {
@@ -56,6 +57,16 @@ export async function POST(request: Request) {
       },
     })
 
+    // 3. Generate opening narration (tick 0 prologue)
+    console.log('3. Generating opening narration...')
+    try {
+      const prologue = await generatePrologue(world)
+      world.tick_summary = prologue
+      console.log('✓ Prologue generated')
+    } catch (e) {
+      console.warn('Prologue generation failed, skipping:', (e as Error).message)
+    }
+
     console.log('=== World initialization complete ===')
 
     return NextResponse.json({
@@ -75,4 +86,57 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
+}
+
+/**
+ * Generate a prologue narration introducing the world, its characters, and the undercurrents.
+ */
+async function generatePrologue(world: typeof import('@/domain/world').createInitialWorldSlice extends () => infer R ? R : never): Promise<string> {
+  const client = createAnthropicClient()
+  const model = getModel()
+
+  const agents = world.agents.npcs
+  const castList = agents.map((a: any) => {
+    const relDescriptions = Object.entries(a.relations || {})
+      .slice(0, 3)
+      .map(([targetSeed, value]) => {
+        const target = agents.find((t: any) => t.genetics.seed === targetSeed)
+        if (!target) return null
+        const label = (value as number) > 0.3 ? 'ally' : (value as number) < -0.3 ? 'rival' : 'acquaintance'
+        return `${label} of ${(target as any).identity.name}`
+      })
+      .filter(Boolean)
+    return `- ${a.identity.name} (${a.occupation || 'unknown'}): ${a.core_belief || 'no known belief'}. ${relDescriptions.length > 0 ? `Connections: ${relDescriptions.join(', ')}` : ''}`
+  }).join('\n')
+
+  const worldLang = world.config?.language || 'en'
+
+  const prompt = `You are a narrator introducing a new world and its characters to the audience for the first time.
+
+World setting:
+${world.environment.description}
+
+Social pressures: ${world.social_context.pressures?.join('; ') || 'none'}
+
+Characters:
+${castList}
+
+Write an opening narration (prologue) for this world. This is tick 0 — nothing has happened yet, but tensions are simmering.
+
+Requirements:
+- Introduce the setting vividly — what does this place look, smell, feel like?
+- Introduce each major character briefly — who they are, what they want, and what threatens them
+- Hint at the conflicts and alliances that are about to unfold — the fault lines
+- End with a sense of anticipation: something is about to begin
+- Tone: atmospheric, cinematic, like the opening of a novel or TV series
+- Length: 300-500 words
+- Write in the same language as the world setting above (detected: ${worldLang})
+
+Write the narration directly, no JSON.`
+
+  return await streamText(client, {
+    model,
+    max_tokens: 2048,
+    messages: [{ role: 'user', content: prompt }],
+  })
 }
