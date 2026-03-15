@@ -55,11 +55,11 @@ export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const label = node.label as string
       const color = node.color as string
-      const baseRadius = Math.max(4, Math.sqrt(node.val || 1) * 2.5)
+      const baseRadius = Math.max(3, Math.sqrt(node.val || 1) * 1.5)
       const isHovered = node.id === hoveredNode
       const isSelected = node.id === selectedNode
       const isHighlighted = isHovered || isSelected
-      const radius = isHighlighted ? baseRadius * 1.4 : baseRadius
+      const radius = isHighlighted ? baseRadius * 1.3 : baseRadius
 
       const x = node.x as number
       const y = node.y as number
@@ -161,7 +161,7 @@ export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
               const src = typeof link.source === 'object' ? link.source.id : link.source
               const tgt = typeof link.target === 'object' ? link.target.id : link.target
               const hl = src === hoveredNode || tgt === hoveredNode || src === selectedNode || tgt === selectedNode
-              return hl ? (link.strength || 1) * 3 + 1 : Math.max(0.5, (link.strength || 1) * 1.5)
+              return hl ? (link.strength || 1) * 4 + 2 : Math.max(1, (link.strength || 1) * 2.5)
             }}
             linkLineDash={(link: any) => link.relType === 'negative' ? [5, 3] : null}
             linkDirectionalParticles={(link: any) => link.relType === 'positive' ? 2 : 0}
@@ -308,13 +308,13 @@ function buildGraphData(world: WorldSlice) {
   // Run ForceAtlas2
   if (g.order > 1) {
     forceAtlas2.assign(g, {
-      iterations: 150,
+      iterations: 200,
       settings: {
-        gravity: 2,
-        scalingRatio: 20,
+        gravity: 0.5,
+        scalingRatio: 80,
         barnesHutOptimize: g.order > 30,
-        strongGravityMode: true,
-        slowDown: 3,
+        strongGravityMode: false,
+        slowDown: 2,
       },
     })
   }
@@ -353,10 +353,10 @@ function buildGraphData(world: WorldSlice) {
     return {
       id: agent.genetics.seed,
       label: agent.identity.name,
-      val: Math.max(2, Object.keys(agent.relations).length * 1.5),
+      val: Math.max(1, Object.keys(agent.relations).length * 0.8),
       color: communityColors[cIdx % communityColors.length],
-      fx: pos.x * 3,  // fix position (from ForceAtlas2)
-      fy: pos.y * 3,
+      fx: pos.x * 8,
+      fy: pos.y * 8,
     }
   })
 
