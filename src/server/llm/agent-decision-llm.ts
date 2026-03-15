@@ -93,20 +93,35 @@ function buildAgentPrompt(agent: PersonalAgentState, world: WorldSlice): string 
       : 'stranger'
     const occLabel = a.occupation ? ` (${a.occupation})` : ''
     const locLabel = a.location ? ` [at ${a.location}]` : ''
-    const isHere = colocated.includes(a) ? ' <-- right beside you' : ''
+    const isHere = colocated.includes(a) ? ' <-- RIGHT HERE' : ''
+
+    // Pull relationship backstory from agent's memory
+    const relMemory = agent.memory_short
+      .filter(m => m.content.includes(a.identity.name) || m.id.includes(a.genetics.seed))
+      .slice(-1)[0]
+    const relStory = relMemory ? `\n    History: ${relMemory.content.substring(0, 100)}` : ''
+
+    // Shared/conflicting goals
+    const sharedGoals = agent.goals.filter(g =>
+      a.goals.some(ag => g.includes(a.identity.name) || ag.includes(agent.identity.name) ||
+        g.split(/\s+/).filter(w => w.length > 2).some(w => ag.includes(w)))
+    )
+    const goalOverlap = sharedGoals.length > 0
+      ? `\n    Shared interest: ${sharedGoals[0].substring(0, 60)}`
+      : ''
 
     if (detail === 'full') {
       const lastAction = a.last_action_description
-        ? `\n    Recent: ${a.last_action_description.substring(0, 80)}`
+        ? `\n    Just did: ${a.last_action_description.substring(0, 100)}`
         : ''
       const emotionLabel = a.emotion.label !== 'neutral' ? `\n    Looks: ${a.emotion.label}` : ''
-      const dialogue = a.last_dialogue ? `\n    Heard them say: "${a.last_dialogue.substring(0, 40)}"` : ''
-      return `- ${a.identity.name}${occLabel} [seed:${a.genetics.seed}]: ${relLabel}(${rel?.toFixed(1)})${locLabel}${isHere}${emotionLabel}${lastAction}${dialogue}`
+      const dialogue = a.last_dialogue ? `\n    Said: "${a.last_dialogue.substring(0, 60)}"` : ''
+      return `- ${a.identity.name}${occLabel} [seed:${a.genetics.seed}]: ${relLabel}(${rel?.toFixed(1)})${locLabel}${isHere}${emotionLabel}${lastAction}${dialogue}${relStory}${goalOverlap}`
     } else if (detail === 'partial') {
       const lastAction = a.last_action_description
-        ? `, seems to be ${a.last_action_description.substring(0, 30)}...`
+        ? `\n    Seems: ${a.last_action_description.substring(0, 50)}...`
         : ''
-      return `- ${a.identity.name}${occLabel} [seed:${a.genetics.seed}]: ${relLabel}${rel != null ? `(${rel.toFixed(1)})` : ''}${locLabel}${isHere}${lastAction}`
+      return `- ${a.identity.name}${occLabel} [seed:${a.genetics.seed}]: ${relLabel}${rel != null ? `(${rel.toFixed(1)})` : ''}${locLabel}${isHere}${lastAction}${relStory}${goalOverlap}`
     } else {
       return `- ${a.identity.name}${occLabel}: ${relLabel}${locLabel}`
     }
@@ -311,12 +326,35 @@ function buildAgentPrompt(agent: PersonalAgentState, world: WorldSlice): string 
     ? `\n## Undercurrents (things you vaguely sense)\n${systemHints.map(h => `- ${h}`).join('\n')}`
     : ''
 
-  // Colocated people
+  // Colocated people — build a rich scene description
   const colocatedNames = colocated.map(a => a.identity.name).join(', ')
+
+  // Build scene: what's happening right here, right now
+  const sceneLines: string[] = []
+  for (const other of colocated) {
+    const rel = agent.relations[other.genetics.seed]
+    const relLabel = rel != null
+      ? rel > 0.5 ? 'your ally' : rel > 0 ? 'friendly' : rel > -0.5 ? 'uneasy terms' : 'your rival'
+      : 'a stranger'
+    const doing = other.last_action_description
+      ? other.last_action_description.substring(0, 80)
+      : 'standing here'
+    const saying = other.last_dialogue
+      ? ` — said: "${other.last_dialogue.substring(0, 50)}"`
+      : ''
+    const mood = other.emotion.label !== 'neutral'
+      ? ` (looks ${other.emotion.label})`
+      : ''
+    sceneLines.push(`- ${other.identity.name} (${relLabel}${mood}): ${doing}${saying}`)
+  }
+  const sceneSection = sceneLines.length > 0
+    ? `\n## The scene right now (what you see)\n${sceneLines.join('\n')}`
+    : ''
+
   const locationSection = `## Your current location
 - Location: ${myLocation}
-${colocated.length > 0 ? `- People nearby: ${colocatedNames}` : '- No one else is around'}
-${colocated.length > 0 ? `**You can only interact face-to-face with people at your location.** To find someone elsewhere, you must first move to their location.` : '**You need to go somewhere first before you can interact with anyone.**'}`
+${colocated.length > 0 ? `- People here: ${colocatedNames}` : '- You are alone'}
+${colocated.length > 0 ? `You can see and talk to these people right now.` : `No one is around.`}`
 
   // Detect world language for output instructions
   const worldLang = world.config?.language || 'en'
@@ -338,8 +376,12 @@ ${colocated.length > 0 ? `**You can only interact face-to-face with people at yo
 - Stress: ${(agent.vitals.stress * 100).toFixed(0)}%
 - Focus: ${(agent.vitals.focus * 100).toFixed(0)}%
 - Current emotion: ${agent.emotion.label} (${(agent.emotion.intensity * 100).toFixed(0)}%)
+${agent.last_action_description ? `- What you just did: ${agent.last_action_description}` : ''}
+${agent.last_dialogue ? `- What you just said: "${agent.last_dialogue}"` : ''}
+${agent.last_inner_monologue ? `- What you were thinking: ${agent.last_inner_monologue}` : ''}
 
 ${locationSection}
+${sceneSection}
 
 ## What you want
 ${agent.goals.length > 0 ? agent.goals.map((g, i) => `${i + 1}. ${g}`).join('\n') : 'You have not decided what to do yet'}
@@ -365,22 +407,9 @@ ${systemSection}${whispersSection}${roleModelsSection}
 
 ---
 
-Now, as "${agent.identity.name}", based on your personality, beliefs, situation, and desires, freely decide what to do next.
+Now, as "${agent.identity.name}", decide what to do next. Be yourself. Act on your desires, fears, grudges, and ambitions. The world is alive — react to it.
 
-**Spatial rules:**
-- You are currently at "${myLocation}"${colocated.length > 0 ? `, with ${colocatedNames} nearby` : ''}
-- You can only interact face-to-face with people at the **same location**
-- If the person you want to find is not nearby, you must **move** — but only say where you're going, don't narrate the walk
-
-**What makes a GOOD action:**
-${colocated.length > 0 ? `- People are right here! **Talk to them, argue, negotiate, confront, flirt, scheme, teach, fight.** Do NOT just walk past them.
-- Have a real conversation. Say something specific and meaningful, not generic pleasantries.
-- If you have conflicting goals with someone nearby, address it NOW.` : `- You're alone. Do something concrete: practice a skill, investigate something, craft, set a trap, search for resources, meditate on a plan.`}
-- **NEVER** just "walk along a path" or "observe the scenery" — that's boring. DO something.
-- **NEVER** repeat what you did last turn. Try something new.
-- Your action should advance at least one of your goals.
-- behavior_description: 1-2 short sentences about what you DID, not scenic prose. Focus on action, not atmosphere.
-- dialogue: if people are around, you SHOULD speak. Real words, not silence.
+You are at "${myLocation}"${colocated.length > 0 ? ` with ${colocatedNames}` : ' alone'}. You can only interact face-to-face with people at the same location.
 
 Return strict JSON:
 {
@@ -392,7 +421,7 @@ Return strict JSON:
   "reasoning": "third person, why this decision (1-2 sentences)",
   "inner_monologue": "first person inner thoughts",
   "dialogue": "what you say out loud (omit if silent)",
-  "behavior_description": "1-2 short sentences: what you DID (action-focused, not scenic)",
+  "behavior_description": "what happened, described in third person",
   "new_location": "where you are after the action (if you didn't move, use current location)",
   "effects": {
     "energy_delta": -0.1 to 0.1,
