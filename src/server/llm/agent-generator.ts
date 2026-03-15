@@ -50,6 +50,154 @@ type GenerationResult = {
   relations: RelationSpec[]
 }
 
+/**
+ * Generate a single agent via LLM, with relationships to existing agents.
+ */
+export async function generateSingleAgent(options: {
+  description: string
+  worldContext: string
+  existingAgents: { seed: string; name: string; occupation?: string }[]
+}): Promise<PersonalAgentState> {
+  const { description, worldContext, existingAgents } = options
+  const client = createAnthropicClient()
+  const model = getModel()
+
+  const existingAgentsList = existingAgents.length > 0
+    ? existingAgents.map(a => `- ${a.name} (${a.occupation || 'unknown'}, seed: ${a.seed})`).join('\n')
+    : '(none)'
+
+  const relationshipRequirement = existingAgents.length >= 2
+    ? `The new character MUST have relationships with at least 2 of the existing characters listed above. Use their seeds in the relations array.`
+    : existingAgents.length === 1
+      ? `The new character MUST have a relationship with the existing character listed above. Use their seed in the relations array.`
+      : `No existing characters yet — the relations array may be empty.`
+
+  const systemPrompt = `You are a character creator for a world simulation. Based on the world context and character description below, generate exactly ONE unique agent.
+
+**World context:**
+${worldContext}
+
+**Existing characters in this world:**
+${existingAgentsList}
+
+${relationshipRequirement}
+
+**Character to create:**
+${description}
+
+For this agent, provide:
+1. seed: unique identifier (kebab-case, descriptive, for internal system use)
+2. name: a name that fits the world's setting and language
+3. persona: personality traits (openness, stability, attachment, agency, empathy) values 0-1
+4. vitals: life state (energy, stress, sleep_debt, focus, aging_index) values 0-1
+5. backstory: brief background story
+6. goals: 2-3 specific, actionable goals (at least one involving another character if any exist)
+
+**Personality fields:**
+7. occupation: a role/profession that fits the world setting
+8. voice: speaking style (brief description)
+9. approach: how they handle things (brief description)
+10. expertise: 3-5 specific skills relevant to the world
+11. core_belief: one sentence - the core value driving this character's behavior
+12. location: initial location within the world
+
+**Language requirement:**
+- Generate ALL content (name, backstory, goals, etc.) in the SAME language as the world context above.
+
+Return a JSON object:
+{
+  "agent": {
+    "seed": "example-agent",
+    "name": "...",
+    "persona": { "openness": 0.7, "stability": 0.6, "attachment": 0.4, "agency": 0.8, "empathy": 0.3 },
+    "vitals": { "energy": 0.8, "stress": 0.3, "sleep_debt": 0.1, "focus": 0.7, "aging_index": 0.2 },
+    "backstory": "...",
+    "goals": ["goal 1", "goal 2", "goal 3"],
+    "occupation": "...",
+    "voice": "...",
+    "approach": "...",
+    "expertise": ["skill1", "skill2", "skill3"],
+    "core_belief": "...",
+    "location": "..."
+  },
+  "relations": [
+    { "from": "new-agent-seed", "to": "existing-agent-seed", "value": 0.5, "label": "reason" },
+    { "from": "existing-agent-seed", "to": "new-agent-seed", "value": -0.2, "label": "reason" }
+  ]
+}`
+
+  const responseText = await streamText(client, {
+    model,
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'user',
+        content: systemPrompt,
+      },
+    ],
+  })
+
+  if (!responseText) {
+    throw new Error('No text content in response')
+  }
+
+  // Extract JSON from response
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) {
+    throw new Error('Failed to parse agent specification from response')
+  }
+
+  const parsed = JSON.parse(jsonMatch[0])
+  const spec: AgentSpec = parsed.agent
+  const relationSpecs: RelationSpec[] = parsed.relations || []
+
+  if (!spec || !spec.seed || !spec.name) {
+    throw new Error('LLM returned invalid agent specification — missing seed or name')
+  }
+
+  // Convert spec to PersonalAgentState
+  const base = createPersonalAgent(spec.seed)
+  const agent: PersonalAgentState = {
+    ...base,
+    identity: { name: spec.name },
+    persona: spec.persona,
+    vitals: spec.vitals,
+    goals: spec.goals || [],
+    occupation: spec.occupation,
+    voice: spec.voice,
+    approach: spec.approach,
+    expertise: spec.expertise,
+    core_belief: spec.core_belief,
+    location: spec.location || 'unknown',
+    success_metrics: {
+      wealth: 0,
+      reputation: 0,
+      power: 0,
+      knowledge: 0,
+    },
+  }
+
+  // Write relationships into the agent's relations field and short-term memory
+  for (const rel of relationSpecs) {
+    if (rel.from === agent.genetics.seed) {
+      agent.relations[rel.to] = Math.max(-1, Math.min(1, rel.value))
+      const targetName = existingAgents.find(a => a.seed === rel.to)?.name || rel.to
+      agent.memory_short.push({
+        id: `init-rel-${rel.from}-${rel.to}`,
+        content: `Relationship with ${targetName}: ${rel.label}`,
+        importance: 0.7,
+        emotional_weight: Math.abs(rel.value) * 0.5,
+        source: 'self' as const,
+        timestamp: new Date().toISOString(),
+        decay_rate: 0.02,
+        retrieval_strength: 0.9,
+      })
+    }
+  }
+
+  return agent
+}
+
 export async function generatePersonalAgents(
   options: GenerateAgentsOptions
 ): Promise<PersonalAgentState[]> {

@@ -231,7 +231,7 @@ export default function WorldDetailPage() {
       {/* 主内容区 */}
       <div className="mx-auto max-w-7xl p-8">
         <div className="grid gap-6 lg:grid-cols-2">
-        <ChatShell onWorldUpdate={setWorld} />
+        <ChatShell world={world} onWorldUpdate={setWorld} />
         <div>
           {/* Tab Navigation */}
           <div className="mb-4 flex gap-2 border-b">

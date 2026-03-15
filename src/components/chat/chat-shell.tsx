@@ -12,13 +12,15 @@ type ChatResponse = {
   reply: string
   worldSummary: string
   world?: WorldSlice
+  error?: string
 }
 
 type ChatShellProps = {
+  world?: WorldSlice | null
   onWorldUpdate?: (world: WorldSlice) => void
 }
 
-export function ChatShell({ onWorldUpdate }: ChatShellProps) {
+export function ChatShell({ world, onWorldUpdate }: ChatShellProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [summary, setSummary] = React.useState<string>('')
   const [input, setInput] = React.useState('')
@@ -31,19 +33,31 @@ export function ChatShell({ onWorldUpdate }: ChatShellProps) {
     setInput('')
     setLoading(true)
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: content }),
-    })
-    const data: ChatResponse = await response.json()
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: content, world: world ?? undefined }),
+      })
+      const data: ChatResponse = await response.json()
 
-    setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
-    setSummary(data.worldSummary)
-    if (data.world && onWorldUpdate) {
-      onWorldUpdate(data.world)
+      if (data.error) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${data.error}` }])
+      } else {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
+        setSummary(data.worldSummary)
+        if (data.world && onWorldUpdate) {
+          onWorldUpdate(data.world)
+        }
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Error: ${(error as Error).message}` },
+      ])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

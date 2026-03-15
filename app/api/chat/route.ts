@@ -2,7 +2,26 @@ import { NextResponse } from 'next/server'
 import { handleChatTurn } from '@/server/chat'
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const result = await handleChatTurn({ message: String(body?.message ?? '') })
-  return NextResponse.json(result)
+  try {
+    const body = await request.json()
+    const message = String(body?.message ?? '')
+    const world = body?.world
+
+    if (!message) {
+      return NextResponse.json({ error: 'message is required' }, { status: 400 })
+    }
+
+    if (!world) {
+      return NextResponse.json({ error: 'world is required' }, { status: 400 })
+    }
+
+    const result = await handleChatTurn({ message, world })
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('[Chat API] Error:', (error as Error).message)
+    return NextResponse.json(
+      { error: 'Failed to process chat message', detail: (error as Error).message },
+      { status: 500 },
+    )
+  }
 }

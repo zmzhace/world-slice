@@ -941,50 +941,64 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
       console.log(`[AutoSpawn] Tick ${nextTick}: spawning ${spawnCount} new agents (alive: ${aliveCount})`)
 
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-      const existingNames = next.agents.npcs
-        .filter(a => a.life_status === 'alive')
-        .map(a => `${a.identity.name} (${a.occupation || 'unknown'})`)
-        .join(', ')
       const recentEvents = next.social_context.macro_events.slice(-5).join('; ')
       const deadNames = next.agents.npcs
         .filter(a => a.life_status === 'dead')
         .map(a => `${a.identity.name} (${a.cause_of_death || 'deceased'})`)
         .join(', ')
 
-      const res = await fetch(`${baseUrl}/api/agents/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `${next.environment.description}\n\nExisting characters: ${existingNames}\n${deadNames ? `Deceased: ${deadNames}` : ''}\nRecent major events: ${recentEvents || 'The world has just begun'}\n\nGenerate ${spawnCount} new character(s). **Important: their appearance must have a narrative reason**, for example:\n- An old friend/enemy/descendant of a deceased character, arriving after hearing the news\n- An outsider drawn by recent events\n- Someone who has been hiding nearby and is forced to emerge due to changing circumstances\n- A figure from an existing character's past with unfinished business\n\nTheir backstory must explain "why they appear now" and they must have relationships with at least 2 existing characters. Do not create characters out of thin air.\n\n**Language: Generate all content in the same language as the world description above.**`,
-          count: spawnCount,
-        }),
-      })
+      const spawnPromptBase = `${deadNames ? `Deceased characters: ${deadNames}\n` : ''}Recent major events: ${recentEvents || 'The world has just begun'}\n\nCreate a new character. Their appearance must have a narrative reason, for example:\n- An old friend/enemy/descendant of a deceased character, arriving after hearing the news\n- An outsider drawn by recent events\n- Someone who has been hiding nearby and is forced to emerge due to changing circumstances\n- A figure from an existing character's past with unfinished business\n\nTheir backstory must explain why they appear now. Do not create characters out of thin air.`
 
-      if (res.ok) {
-        const data = await res.json()
-        const newAgents = data.agents || []
-        if (newAgents.length > 0) {
-          next = {
-            ...next,
-            agents: {
-              ...next.agents,
-              npcs: [...next.agents.npcs, ...newAgents],
-            },
-            events: [
-              ...next.events,
-              ...newAgents.map((a: PersonalAgentState) => ({
-                id: `spawn-${nextTick}-${a.genetics.seed}`,
-                type: 'agent_spawn',
-                timestamp,
-                payload: {
-                  agent_name: a.identity.name,
-                  summary: `${a.identity.name} (${a.occupation || 'unknown'}) has arrived in this world`,
-                },
-              })),
-            ],
-          }
-          console.log(`[AutoSpawn] Created: ${newAgents.map((a: PersonalAgentState) => a.identity.name).join(', ')}`)
+      const newAgents: PersonalAgentState[] = []
+      for (let i = 0; i < spawnCount; i++) {
+        const existingAgents = next.agents.npcs
+          .filter(a => a.life_status === 'alive')
+          .map(a => ({ seed: a.genetics.seed, name: a.identity.name, occupation: a.occupation }))
+
+        const worldContext = {
+          environment: next.environment,
+          social_context: next.social_context,
         }
+
+        const res = await fetch(`${baseUrl}/api/agents/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: spawnPromptBase,
+            worldContext,
+            existingAgents,
+          }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          if (data.agent) {
+            newAgents.push(data.agent)
+            // Add to next so subsequent spawns see the just-created agent
+            next = {
+              ...next,
+              agents: {
+                ...next.agents,
+                npcs: [...next.agents.npcs, data.agent],
+              },
+              events: [
+                ...next.events,
+                {
+                  id: `spawn-${nextTick}-${data.agent.genetics.seed}`,
+                  type: 'agent_spawn',
+                  timestamp,
+                  payload: {
+                    agent_name: data.agent.identity.name,
+                    summary: `${data.agent.identity.name} (${data.agent.occupation || 'unknown'}) has arrived in this world`,
+                  },
+                },
+              ],
+            }
+          }
+        }
+      }
+      if (newAgents.length > 0) {
+        console.log(`[AutoSpawn] Created: ${newAgents.map((a: PersonalAgentState) => a.identity.name).join(', ')}`)
       }
     } catch (error) {
       console.warn('[AutoSpawn] Failed:', (error as Error).message)

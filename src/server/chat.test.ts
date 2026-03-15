@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { handleChatTurn } from './chat'
 import { registerDirectorAgent } from './pangu'
+import { createInitialWorldSlice } from '@/domain/world'
 
 it('returns a reply and updates the world summary after a user message', async () => {
-  const result = await handleChatTurn({ message: '我今天有点累。' })
+  const world = createInitialWorldSlice()
+  const result = await handleChatTurn({ message: '我今天有点累。', world })
 
   expect(result.reply.length).toBeGreaterThan(0)
   expect(result.worldSummary.length).toBeGreaterThan(0)
@@ -17,7 +19,8 @@ it('uses the shared director registry when running ticks', async () => {
     run: () => ({ events: [{ id: 'e2', kind: 'macro', summary: 'news' }] }),
   })
 
-  const result = await handleChatTurn({ message: 'hi' })
+  const world = createInitialWorldSlice()
+  const result = await handleChatTurn({ message: 'hi', world })
 
   expect(result.world.events.find((e) => e.id === 'e2')).toBeDefined()
 })
