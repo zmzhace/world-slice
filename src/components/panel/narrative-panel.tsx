@@ -61,7 +61,11 @@ export function NarrativePanel({ world }: NarrativePanelProps) {
           Active Narratives
         </h3>
         {activePatterns.length === 0 ? (
-          <p className="text-sm text-slate-500">No active narratives</p>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
+            <BookOpen className="mx-auto h-8 w-8 text-slate-600 mb-3" />
+            <p className="text-sm text-slate-400 font-medium">No narratives yet</p>
+            <p className="mt-1 text-xs text-slate-600">Advance a few ticks — stories emerge from agent interactions</p>
+          </div>
         ) : (
           <div className="space-y-3">
             {activePatterns.map(pattern => (

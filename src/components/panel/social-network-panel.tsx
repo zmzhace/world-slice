@@ -147,15 +147,18 @@ export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
               {community.members.length} members
             </div>
             <div className="flex flex-wrap gap-1">
-              {community.members.slice(0, 5).map(member => (
-                <span
-                  key={member}
-                  className="text-xs bg-white/[0.06] text-slate-400 px-2 py-0.5 rounded-full cursor-pointer hover:bg-white/[0.10] hover:text-slate-300 transition-colors"
-                  onClick={() => setSelectedNode(member)}
-                >
-                  {member}
-                </span>
-              ))}
+              {community.members.slice(0, 5).map(memberId => {
+                const memberNode = nodes.find(n => n.id === memberId)
+                return (
+                  <span
+                    key={memberId}
+                    className="text-xs bg-white/[0.06] text-slate-400 px-2 py-0.5 rounded-full cursor-pointer hover:bg-white/[0.10] hover:text-slate-300 transition-colors"
+                    onClick={() => setSelectedNode(memberId)}
+                  >
+                    {memberNode?.name || memberId}
+                  </span>
+                )
+              })}
               {community.members.length > 5 && (
                 <span className="text-xs text-slate-600">
                   +{community.members.length - 5}
@@ -199,14 +202,17 @@ export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
                   {Object.entries(selectedAgent.relations)
                     .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
                     .slice(0, 5)
-                    .map(([target, value]) => (
-                      <div key={target} className="flex items-center justify-between">
-                        <span className="text-slate-400">{target}</span>
-                        <span className={value > 0 ? 'text-emerald-400' : 'text-red-400'}>
-                          {value > 0 ? '+' : ''}{value.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                    .map(([target, value]) => {
+                      const targetAgent = world.agents.npcs.find(a => a.genetics.seed === target)
+                      return (
+                        <div key={target} className="flex items-center justify-between">
+                          <span className="text-slate-400">{targetAgent?.identity.name || target}</span>
+                          <span className={value > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                            {value > 0 ? '+' : ''}{value.toFixed(2)}
+                          </span>
+                        </div>
+                      )
+                    })}
                 </div>
               </div>
             )}
@@ -319,7 +325,7 @@ function detectCommunities(
   return communities
 }
 
-// 计算布局（简化的力导向布局）
+// 计算布局（force-directed simulation）
 function calculateLayout(
   nodes: NetworkNode[],
   links: NetworkLink[],
@@ -328,26 +334,85 @@ function calculateLayout(
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>()
 
-  // 初始化随机位置
-  for (const node of nodes) {
-    positions.set(node.id, {
-      x: Math.random() * width,
-      y: Math.random() * height
-    })
-  }
+  if (nodes.length === 0) return positions
 
-  // 简化：使用圆形布局
-  const radius = Math.min(width, height) * 0.35
+  // Initialize with circular layout
   const centerX = width / 2
   const centerY = height / 2
+  const initRadius = Math.min(width, height) * 0.3
 
   nodes.forEach((node, i) => {
-    const angle = (i / nodes.length) * 2 * Math.PI
+    const angle = (i / nodes.length) * 2 * Math.PI - Math.PI / 2
     positions.set(node.id, {
-      x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle)
+      x: centerX + initRadius * Math.cos(angle),
+      y: centerY + initRadius * Math.sin(angle),
     })
   })
+
+  // Run force simulation (50 iterations)
+  const repulsion = 3000
+  const attraction = 0.005
+  const damping = 0.9
+  const velocities = new Map<string, { vx: number; vy: number }>()
+  nodes.forEach(n => velocities.set(n.id, { vx: 0, vy: 0 }))
+
+  for (let iter = 0; iter < 60; iter++) {
+    // Repulsive forces (all pairs)
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = positions.get(nodes[i].id)!
+        const b = positions.get(nodes[j].id)!
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+        const force = repulsion / (dist * dist)
+        const fx = (dx / dist) * force
+        const fy = (dy / dist) * force
+
+        const va = velocities.get(nodes[i].id)!
+        const vb = velocities.get(nodes[j].id)!
+        va.vx -= fx; va.vy -= fy
+        vb.vx += fx; vb.vy += fy
+      }
+    }
+
+    // Attractive forces (links)
+    for (const link of links) {
+      const a = positions.get(link.source)
+      const b = positions.get(link.target)
+      if (!a || !b) continue
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+      const force = dist * attraction * (1 + link.value)
+      const fx = (dx / dist) * force
+      const fy = (dy / dist) * force
+
+      const va = velocities.get(link.source)!
+      const vb = velocities.get(link.target)!
+      if (va) { va.vx += fx; va.vy += fy }
+      if (vb) { vb.vx -= fx; vb.vy -= fy }
+    }
+
+    // Center gravity
+    for (const node of nodes) {
+      const pos = positions.get(node.id)!
+      const v = velocities.get(node.id)!
+      v.vx += (centerX - pos.x) * 0.001
+      v.vy += (centerY - pos.y) * 0.001
+    }
+
+    // Apply velocities with damping
+    const margin = 40
+    for (const node of nodes) {
+      const pos = positions.get(node.id)!
+      const v = velocities.get(node.id)!
+      v.vx *= damping
+      v.vy *= damping
+      pos.x = Math.max(margin, Math.min(width - margin, pos.x + v.vx))
+      pos.y = Math.max(margin, Math.min(height - margin, pos.y + v.vy))
+    }
+  }
 
   return positions
 }
@@ -363,67 +428,77 @@ function drawNetwork(
 ) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
 
-  // 绘制连接
+  // Draw links
   for (const link of links) {
     const sourcePos = positions.get(link.source)
     const targetPos = positions.get(link.target)
-
     if (!sourcePos || !targetPos) continue
 
     ctx.beginPath()
     ctx.moveTo(sourcePos.x, sourcePos.y)
     ctx.lineTo(targetPos.x, targetPos.y)
 
-    // 根据关系类型设置颜色
+    const isHighlighted = link.source === hoveredNode || link.target === hoveredNode ||
+                          link.source === selectedNode || link.target === selectedNode
+
     if (link.type === 'positive') {
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)'
+      ctx.strokeStyle = isHighlighted ? 'rgba(16, 185, 129, 0.7)' : 'rgba(16, 185, 129, 0.25)'
     } else if (link.type === 'negative') {
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'
+      ctx.strokeStyle = isHighlighted ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.25)'
+      ctx.setLineDash([4, 4])
     } else {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+      ctx.strokeStyle = isHighlighted ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)'
     }
 
-    ctx.lineWidth = link.value * 2
+    ctx.lineWidth = isHighlighted ? link.value * 3 + 1 : link.value * 1.5 + 0.5
     ctx.stroke()
+    ctx.setLineDash([])
   }
 
-  // 绘制节点
+  // Draw nodes
   for (const node of nodes) {
     const pos = positions.get(node.id)
     if (!pos) continue
 
     const isHovered = node.id === hoveredNode
     const isSelected = node.id === selectedNode
-    const radius = node.size * (isHovered || isSelected ? 1.5 : 1)
+    const radius = Math.max(6, node.size) * (isHovered || isSelected ? 1.3 : 1)
 
-    // 绘制节点发光
+    // Outer glow
     if (isHovered || isSelected) {
+      const gradient = ctx.createRadialGradient(pos.x, pos.y, radius, pos.x, pos.y, radius + 12)
+      gradient.addColorStop(0, node.color + '40')
+      gradient.addColorStop(1, 'transparent')
       ctx.beginPath()
-      ctx.arc(pos.x, pos.y, radius + 6, 0, 2 * Math.PI)
-      ctx.fillStyle = node.color.replace(')', ', 0.15)').replace('rgb', 'rgba')
+      ctx.arc(pos.x, pos.y, radius + 12, 0, 2 * Math.PI)
+      ctx.fillStyle = gradient
       ctx.fill()
     }
 
-    // 绘制节点
+    // Node circle
     ctx.beginPath()
     ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI)
-    ctx.fillStyle = node.color
+    ctx.fillStyle = isHovered || isSelected ? node.color : node.color + 'CC'
     ctx.fill()
 
-    // 选中或悬停时添加边框
-    if (isHovered || isSelected) {
-      ctx.strokeStyle = isSelected ? '#60a5fa' : '#93c5fd'
+    if (isSelected) {
+      ctx.strokeStyle = '#93c5fd'
       ctx.lineWidth = 2
       ctx.stroke()
     }
 
-    // 绘制标签
-    if (isHovered || isSelected) {
-      ctx.fillStyle = '#e2e8f0'
-      ctx.font = '11px system-ui, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(node.name, pos.x, pos.y + radius + 16)
-    }
+    // Label — always visible
+    ctx.fillStyle = isHovered || isSelected ? '#f1f5f9' : '#94a3b8'
+    ctx.font = isHovered || isSelected ? 'bold 12px system-ui, sans-serif' : '11px system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+
+    // Text background for readability
+    const textWidth = ctx.measureText(node.name).width
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
+    ctx.fillRect(pos.x - textWidth / 2 - 3, pos.y + radius + 4, textWidth + 6, 16)
+    ctx.fillStyle = isHovered || isSelected ? '#f1f5f9' : '#94a3b8'
+    ctx.fillText(node.name, pos.x, pos.y + radius + 6)
   }
 }
 
