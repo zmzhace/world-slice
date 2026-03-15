@@ -7,6 +7,7 @@ type GenerateWorldOptions = {
 }
 
 type WorldSpec = {
+  title: string
   environment: {
     description: string
     region: string
@@ -37,6 +38,7 @@ User description: "${worldPrompt}"
 
 Generate the following content in JSON format:
 {
+  "title": "A short, evocative title for this world (3-8 words, like a novel or movie title)",
   "environment": {
     "description": "Overall description of the environment",
     "region": "Geographic region",
@@ -97,6 +99,7 @@ Requirements:
 
     return {
       ...world,
+      title: spec.title || undefined,
       config: {
         language: detectedLanguage,
         reborn_suffix: detectedLanguage === 'zh' ? '·转世' : ' Reborn',

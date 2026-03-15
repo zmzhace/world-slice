@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import dynamic from 'next/dynamic'
 import type { WorldSlice, PersonalAgentState } from '@/domain/world'
 import {
   Network,
@@ -9,6 +10,8 @@ import {
   Skull,
   Minus,
 } from 'lucide-react'
+
+const ForceGraph = dynamic(() => import('react-force-graph-2d'), { ssr: false })
 
 type SocialNetworkPanelProps = {
   world: WorldSlice
@@ -29,65 +32,161 @@ type NetworkLink = {
   type: 'positive' | 'negative' | 'neutral'
 }
 
+// Graph data node with extra fields for ForceGraph2D
+type GraphNode = {
+  id: string
+  name: string
+  val: number
+  color: string
+  group: number
+}
+
+// Graph data link with extra fields for ForceGraph2D
+type GraphLink = {
+  source: string
+  target: string
+  color: string
+  width: number
+  type: 'positive' | 'negative' | 'neutral'
+  value: number
+}
+
 export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const [selectedNode, setSelectedNode] = React.useState<string | null>(null)
   const [hoveredNode, setHoveredNode] = React.useState<string | null>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = React.useState(600)
+
+  // Track container width for responsive sizing
+  React.useEffect(() => {
+    if (!containerRef.current) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   // 构建网络数据
   const { nodes, links, communities } = React.useMemo(() => {
     return buildNetworkData(world)
   }, [world])
 
-  // 绘制网络图
-  React.useEffect(() => {
-    if (!canvasRef.current) return
+  // Transform into ForceGraph2D format
+  const graphData = React.useMemo(() => {
+    const graphNodes: GraphNode[] = nodes.map(n => ({
+      id: n.id,
+      name: n.name,
+      val: Math.max(2, n.size),
+      color: n.color,
+      group: n.group,
+    }))
 
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    const graphLinks: GraphLink[] = links.map(l => ({
+      source: l.source,
+      target: l.target,
+      color:
+        l.type === 'positive'
+          ? 'rgba(16,185,129,0.4)'
+          : l.type === 'negative'
+            ? 'rgba(239,68,68,0.4)'
+            : 'rgba(255,255,255,0.06)',
+      width: Math.max(0.5, l.value * 2),
+      type: l.type,
+      value: l.value,
+    }))
 
-    // 设置画布大小
-    canvas.width = canvas.offsetWidth
-    canvas.height = canvas.offsetHeight
+    return { nodes: graphNodes, links: graphLinks }
+  }, [nodes, links])
 
-    // 简单的力导向布局（简化版）
-    const positions = calculateLayout(nodes, links, canvas.width, canvas.height)
+  // Set of node IDs connected to the hovered node (for highlight)
+  const connectedNodeIds = React.useMemo(() => {
+    if (!hoveredNode) return new Set<string>()
+    const ids = new Set<string>()
+    ids.add(hoveredNode)
+    for (const l of links) {
+      if (l.source === hoveredNode) ids.add(l.target)
+      if (l.target === hoveredNode) ids.add(l.source)
+    }
+    return ids
+  }, [hoveredNode, links])
 
-    // 绘制
-    drawNetwork(ctx, nodes, links, positions, hoveredNode, selectedNode)
-  }, [nodes, links, hoveredNode, selectedNode])
+  // Custom node renderer
+  const nodeCanvasObject = React.useCallback(
+    (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const id = node.id as string
+      const label = node.name as string
+      const color = node.color as string
+      const baseRadius = Math.max(4, Math.sqrt(node.val || 1) * 2.5)
+      const isHovered = id === hoveredNode
+      const isSelected = id === selectedNode
+      const isHighlighted = isHovered || isSelected
+      const radius = isHighlighted ? baseRadius * 1.4 : baseRadius
 
-  // 处理鼠标事件
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+      const x = node.x as number
+      const y = node.y as number
 
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+      // Glow effect for highlighted nodes
+      if (isHighlighted) {
+        const gradient = ctx.createRadialGradient(x, y, radius, x, y, radius + 10)
+        gradient.addColorStop(0, color + '60')
+        gradient.addColorStop(1, 'transparent')
+        ctx.beginPath()
+        ctx.arc(x, y, radius + 10, 0, 2 * Math.PI)
+        ctx.fillStyle = gradient
+        ctx.fill()
+      }
 
-    // 查找点击的节点
-    const positions = calculateLayout(nodes, links, canvas.width, canvas.height)
-    const clickedNode = findNodeAtPosition(nodes, positions, x, y)
+      // Node circle
+      ctx.beginPath()
+      ctx.arc(x, y, radius, 0, 2 * Math.PI)
+      ctx.fillStyle = isHighlighted ? color : color + 'CC'
+      ctx.fill()
 
-    setSelectedNode(clickedNode)
-  }
+      if (isSelected) {
+        ctx.strokeStyle = '#93c5fd'
+        ctx.lineWidth = 2 / globalScale
+        ctx.stroke()
+      }
 
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+      // Label below the node (always visible)
+      const fontSize = 11 / globalScale
+      ctx.font = `${isHighlighted ? 'bold ' : ''}${fontSize}px system-ui, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
 
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+      const textWidth = ctx.measureText(label).width
+      const textY = y + radius + 3 / globalScale
+      const padding = 2 / globalScale
 
-    const positions = calculateLayout(nodes, links, canvas.width, canvas.height)
-    const hoveredNode = findNodeAtPosition(nodes, positions, x, y)
+      // Dark background rect for readability
+      ctx.fillStyle = 'rgba(5, 5, 8, 0.75)'
+      ctx.fillRect(
+        x - textWidth / 2 - padding,
+        textY - padding,
+        textWidth + padding * 2,
+        fontSize + padding * 2
+      )
 
-    setHoveredNode(hoveredNode)
-    canvas.style.cursor = hoveredNode ? 'pointer' : 'default'
-  }
+      ctx.fillStyle = isHighlighted ? '#f1f5f9' : '#94a3b8'
+      ctx.fillText(label, x, textY)
+    },
+    [hoveredNode, selectedNode]
+  )
+
+  // Custom pointer area for nodes (makes hit detection match visual size)
+  const nodePointerAreaPaint = React.useCallback(
+    (node: any, paintColor: string, ctx: CanvasRenderingContext2D) => {
+      const radius = Math.max(6, Math.sqrt(node.val || 1) * 3)
+      ctx.beginPath()
+      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
+      ctx.fillStyle = paintColor
+      ctx.fill()
+    },
+    []
+  )
 
   // 获取选中节点的详细信息
   const selectedAgent = selectedNode
@@ -107,16 +206,69 @@ export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
       </div>
 
       {/* 网络图 */}
-      <div className="relative rounded-xl border border-white/[0.06] bg-[#050508]" style={{ height: '500px' }}>
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-          onClick={handleCanvasClick}
-          onMouseMove={handleCanvasMouseMove}
+      <div
+        ref={containerRef}
+        className="relative rounded-xl border border-white/[0.06] bg-[#050508]"
+        style={{ height: '500px' }}
+      >
+        <ForceGraph
+          graphData={graphData}
+          width={containerWidth}
+          height={500}
+          backgroundColor="#050508"
+          nodeCanvasObject={nodeCanvasObject}
+          nodeCanvasObjectMode={() => 'replace'}
+          nodePointerAreaPaint={nodePointerAreaPaint}
+          linkColor={(link: any) => {
+            const src = typeof link.source === 'object' ? link.source.id : link.source
+            const tgt = typeof link.target === 'object' ? link.target.id : link.target
+            const isHighlighted =
+              src === hoveredNode || tgt === hoveredNode ||
+              src === selectedNode || tgt === selectedNode
+
+            if (link.type === 'positive') {
+              return isHighlighted ? 'rgba(16,185,129,0.7)' : 'rgba(16,185,129,0.4)'
+            }
+            if (link.type === 'negative') {
+              return isHighlighted ? 'rgba(239,68,68,0.7)' : 'rgba(239,68,68,0.4)'
+            }
+            return isHighlighted ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'
+          }}
+          linkWidth={(link: any) => {
+            const src = typeof link.source === 'object' ? link.source.id : link.source
+            const tgt = typeof link.target === 'object' ? link.target.id : link.target
+            const isHighlighted =
+              src === hoveredNode || tgt === hoveredNode ||
+              src === selectedNode || tgt === selectedNode
+            return isHighlighted ? link.value * 3 + 1 : Math.max(0.5, link.value * 1.5)
+          }}
+          linkLineDash={(link: any) =>
+            link.type === 'negative' ? [4, 2] : null
+          }
+          linkDirectionalParticles={(link: any) =>
+            link.type === 'positive' ? 2 : 0
+          }
+          linkDirectionalParticleSpeed={0.005}
+          linkDirectionalParticleWidth={2}
+          linkDirectionalParticleColor={(link: any) => 'rgba(16,185,129,0.6)'}
+          onNodeClick={(node: any) => {
+            setSelectedNode(node.id as string)
+          }}
+          onNodeHover={(node: any) => {
+            setHoveredNode(node ? (node.id as string) : null)
+          }}
+          onBackgroundClick={() => {
+            setSelectedNode(null)
+          }}
+          warmupTicks={100}
+          cooldownTicks={0}
+          enableNodeDrag={true}
+          enableZoomInteraction={true}
+          enablePanInteraction={true}
         />
 
         {/* 图例 */}
-        <div className="absolute top-3 right-3 rounded-xl border border-white/[0.06] bg-[#0a0a0f]/90 backdrop-blur-sm p-3 text-xs">
+        <div className="absolute top-3 right-3 rounded-xl border border-white/[0.06] bg-[#0a0a0f]/90 backdrop-blur-sm p-3 text-xs pointer-events-none">
           <div className="font-semibold text-slate-300 mb-2">Legend</div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -323,201 +475,4 @@ function detectCommunities(
   }
 
   return communities
-}
-
-// 计算布局（force-directed simulation）
-function calculateLayout(
-  nodes: NetworkNode[],
-  links: NetworkLink[],
-  width: number,
-  height: number
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>()
-
-  if (nodes.length === 0) return positions
-
-  // Initialize with circular layout
-  const centerX = width / 2
-  const centerY = height / 2
-  const initRadius = Math.min(width, height) * 0.3
-
-  nodes.forEach((node, i) => {
-    const angle = (i / nodes.length) * 2 * Math.PI - Math.PI / 2
-    positions.set(node.id, {
-      x: centerX + initRadius * Math.cos(angle),
-      y: centerY + initRadius * Math.sin(angle),
-    })
-  })
-
-  // Run force simulation (50 iterations)
-  const repulsion = 3000
-  const attraction = 0.005
-  const damping = 0.9
-  const velocities = new Map<string, { vx: number; vy: number }>()
-  nodes.forEach(n => velocities.set(n.id, { vx: 0, vy: 0 }))
-
-  for (let iter = 0; iter < 60; iter++) {
-    // Repulsive forces (all pairs)
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = positions.get(nodes[i].id)!
-        const b = positions.get(nodes[j].id)!
-        const dx = b.x - a.x
-        const dy = b.y - a.y
-        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
-        const force = repulsion / (dist * dist)
-        const fx = (dx / dist) * force
-        const fy = (dy / dist) * force
-
-        const va = velocities.get(nodes[i].id)!
-        const vb = velocities.get(nodes[j].id)!
-        va.vx -= fx; va.vy -= fy
-        vb.vx += fx; vb.vy += fy
-      }
-    }
-
-    // Attractive forces (links)
-    for (const link of links) {
-      const a = positions.get(link.source)
-      const b = positions.get(link.target)
-      if (!a || !b) continue
-      const dx = b.x - a.x
-      const dy = b.y - a.y
-      const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
-      const force = dist * attraction * (1 + link.value)
-      const fx = (dx / dist) * force
-      const fy = (dy / dist) * force
-
-      const va = velocities.get(link.source)!
-      const vb = velocities.get(link.target)!
-      if (va) { va.vx += fx; va.vy += fy }
-      if (vb) { vb.vx -= fx; vb.vy -= fy }
-    }
-
-    // Center gravity
-    for (const node of nodes) {
-      const pos = positions.get(node.id)!
-      const v = velocities.get(node.id)!
-      v.vx += (centerX - pos.x) * 0.001
-      v.vy += (centerY - pos.y) * 0.001
-    }
-
-    // Apply velocities with damping
-    const margin = 40
-    for (const node of nodes) {
-      const pos = positions.get(node.id)!
-      const v = velocities.get(node.id)!
-      v.vx *= damping
-      v.vy *= damping
-      pos.x = Math.max(margin, Math.min(width - margin, pos.x + v.vx))
-      pos.y = Math.max(margin, Math.min(height - margin, pos.y + v.vy))
-    }
-  }
-
-  return positions
-}
-
-// 绘制网络
-function drawNetwork(
-  ctx: CanvasRenderingContext2D,
-  nodes: NetworkNode[],
-  links: NetworkLink[],
-  positions: Map<string, { x: number; y: number }>,
-  hoveredNode: string | null,
-  selectedNode: string | null
-) {
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-
-  // Draw links
-  for (const link of links) {
-    const sourcePos = positions.get(link.source)
-    const targetPos = positions.get(link.target)
-    if (!sourcePos || !targetPos) continue
-
-    ctx.beginPath()
-    ctx.moveTo(sourcePos.x, sourcePos.y)
-    ctx.lineTo(targetPos.x, targetPos.y)
-
-    const isHighlighted = link.source === hoveredNode || link.target === hoveredNode ||
-                          link.source === selectedNode || link.target === selectedNode
-
-    if (link.type === 'positive') {
-      ctx.strokeStyle = isHighlighted ? 'rgba(16, 185, 129, 0.7)' : 'rgba(16, 185, 129, 0.25)'
-    } else if (link.type === 'negative') {
-      ctx.strokeStyle = isHighlighted ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.25)'
-      ctx.setLineDash([4, 4])
-    } else {
-      ctx.strokeStyle = isHighlighted ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)'
-    }
-
-    ctx.lineWidth = isHighlighted ? link.value * 3 + 1 : link.value * 1.5 + 0.5
-    ctx.stroke()
-    ctx.setLineDash([])
-  }
-
-  // Draw nodes
-  for (const node of nodes) {
-    const pos = positions.get(node.id)
-    if (!pos) continue
-
-    const isHovered = node.id === hoveredNode
-    const isSelected = node.id === selectedNode
-    const radius = Math.max(6, node.size) * (isHovered || isSelected ? 1.3 : 1)
-
-    // Outer glow
-    if (isHovered || isSelected) {
-      const gradient = ctx.createRadialGradient(pos.x, pos.y, radius, pos.x, pos.y, radius + 12)
-      gradient.addColorStop(0, node.color + '40')
-      gradient.addColorStop(1, 'transparent')
-      ctx.beginPath()
-      ctx.arc(pos.x, pos.y, radius + 12, 0, 2 * Math.PI)
-      ctx.fillStyle = gradient
-      ctx.fill()
-    }
-
-    // Node circle
-    ctx.beginPath()
-    ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI)
-    ctx.fillStyle = isHovered || isSelected ? node.color : node.color + 'CC'
-    ctx.fill()
-
-    if (isSelected) {
-      ctx.strokeStyle = '#93c5fd'
-      ctx.lineWidth = 2
-      ctx.stroke()
-    }
-
-    // Label — always visible
-    ctx.fillStyle = isHovered || isSelected ? '#f1f5f9' : '#94a3b8'
-    ctx.font = isHovered || isSelected ? 'bold 12px system-ui, sans-serif' : '11px system-ui, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'top'
-
-    // Text background for readability
-    const textWidth = ctx.measureText(node.name).width
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
-    ctx.fillRect(pos.x - textWidth / 2 - 3, pos.y + radius + 4, textWidth + 6, 16)
-    ctx.fillStyle = isHovered || isSelected ? '#f1f5f9' : '#94a3b8'
-    ctx.fillText(node.name, pos.x, pos.y + radius + 6)
-  }
-}
-
-// 查找位置上的节点
-function findNodeAtPosition(
-  nodes: NetworkNode[],
-  positions: Map<string, { x: number; y: number }>,
-  x: number,
-  y: number
-): string | null {
-  for (const node of nodes) {
-    const pos = positions.get(node.id)
-    if (!pos) continue
-
-    const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2))
-    if (distance <= node.size) {
-      return node.id
-    }
-  }
-
-  return null
 }

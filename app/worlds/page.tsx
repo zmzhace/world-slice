@@ -87,9 +87,16 @@ export default function WorldsPage() {
                 className="group relative rounded-xl border border-white/[0.08] bg-[#141414] p-5 transition-all duration-200 hover:border-white/[0.15] hover:shadow-[0_0_30px_rgba(59,130,246,0.06)]"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-sm font-medium leading-snug text-neutral-200 line-clamp-2 group-hover:text-white transition-colors">
-                    {world.worldPrompt}
-                  </h3>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-medium leading-snug text-neutral-200 line-clamp-2 group-hover:text-white transition-colors">
+                      {world.worldSnapshot?.title || world.worldPrompt}
+                    </h3>
+                    {world.worldSnapshot?.title && (
+                      <p className="mt-1 text-xs text-neutral-500 line-clamp-1">
+                        {world.worldPrompt}
+                      </p>
+                    )}
+                  </div>
                   <button
                     onClick={(e) => handleDelete(world.id, e)}
                     className="shrink-0 rounded-md p-1.5 text-neutral-600 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"

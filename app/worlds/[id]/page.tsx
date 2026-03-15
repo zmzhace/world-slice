@@ -189,7 +189,7 @@ export default function WorldDetailPage() {
 
               <div className="min-w-0">
                 <h1 className="truncate text-lg font-bold text-slate-100">
-                  World Slice
+                  {world?.title || 'World Slice'}
                 </h1>
                 <p className="truncate text-xs text-slate-500 max-w-[260px]">
                   {worldRecord.worldPrompt}
