@@ -22,21 +22,21 @@ type EventsPanelProps = {
 }
 
 const eventConfig: Record<string, { icon: React.ElementType; label: string; color: string }> = {
-  world_created: { icon: Globe, label: 'World Created', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' },
-  world_initialized: { icon: Sparkles, label: 'World Initialized', color: 'bg-violet-500/15 text-violet-400 border-violet-500/20' },
-  agents_created: { icon: Users, label: 'Agents Created', color: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
-  narrative_emerged: { icon: BookOpen, label: 'Narrative Emerged', color: 'bg-amber-500/15 text-amber-400 border-amber-500/20' },
-  narrative_concluded: { icon: PartyPopper, label: 'Narrative Concluded', color: 'bg-green-500/15 text-green-400 border-green-500/20' },
-  story_arc_detected: { icon: Clapperboard, label: 'Story Arc Detected', color: 'bg-pink-500/15 text-pink-400 border-pink-500/20' },
-  agent_death: { icon: Skull, label: 'Agent Death', color: 'bg-red-500/15 text-red-400 border-red-500/20' },
-  agent_reincarnation: { icon: RefreshCw, label: 'Reincarnation', color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20' },
-  tick: { icon: Timer, label: 'Tick', color: 'bg-slate-500/15 text-slate-400 border-slate-500/20' },
-  user_message: { icon: MessageCircle, label: 'User Message', color: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
-  micro: { icon: Drama, label: 'Agent Action', color: 'bg-orange-500/15 text-orange-400 border-orange-500/20' },
-  macro: { icon: Star, label: 'Major Event', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20' },
+  world_created: { icon: Globe, label: 'World Created', color: 'bg-emerald-100 text-emerald-600 border-emerald-200' },
+  world_initialized: { icon: Sparkles, label: 'World Initialized', color: 'bg-violet-100 text-violet-600 border-violet-200' },
+  agents_created: { icon: Users, label: 'Agents Created', color: 'bg-blue-100 text-blue-600 border-blue-200' },
+  narrative_emerged: { icon: BookOpen, label: 'Narrative Emerged', color: 'bg-amber-100 text-amber-600 border-amber-200' },
+  narrative_concluded: { icon: PartyPopper, label: 'Narrative Concluded', color: 'bg-green-100 text-green-600 border-green-200' },
+  story_arc_detected: { icon: Clapperboard, label: 'Story Arc Detected', color: 'bg-pink-100 text-pink-600 border-pink-200' },
+  agent_death: { icon: Skull, label: 'Agent Death', color: 'bg-red-100 text-red-600 border-red-200' },
+  agent_reincarnation: { icon: RefreshCw, label: 'Reincarnation', color: 'bg-cyan-100 text-cyan-600 border-cyan-200' },
+  tick: { icon: Timer, label: 'Tick', color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  user_message: { icon: MessageCircle, label: 'User Message', color: 'bg-blue-100 text-blue-600 border-blue-200' },
+  micro: { icon: Drama, label: 'Agent Action', color: 'bg-orange-100 text-orange-600 border-orange-200' },
+  macro: { icon: Star, label: 'Major Event', color: 'bg-yellow-100 text-yellow-600 border-yellow-200' },
 }
 
-const defaultEventConfig = { icon: Pin, label: '', color: 'bg-slate-500/15 text-slate-400 border-slate-500/20' }
+const defaultEventConfig = { icon: Pin, label: '', color: 'bg-slate-100 text-slate-600 border-slate-200' }
 
 export function EventsPanel({ world }: EventsPanelProps) {
   const recentEvents = world.events.slice(-20).reverse()
@@ -45,17 +45,17 @@ export function EventsPanel({ world }: EventsPanelProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold text-slate-100">Event Log</h2>
+          <Activity className="h-5 w-5 text-slate-500" />
+          <h2 className="text-lg font-semibold text-slate-800">Event Log</h2>
         </div>
-        <span className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-mono text-xs text-slate-400">
+        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs text-slate-500">
           Tick {world.tick}
         </span>
       </div>
 
       <div className="space-y-1.5">
         {recentEvents.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">No events yet</p>
+          <p className="py-8 text-center text-sm text-slate-400">No events yet</p>
         ) : (
           recentEvents.map((event) => {
             const payload = event.payload || {}
@@ -78,7 +78,7 @@ export function EventsPanel({ world }: EventsPanelProps) {
             return (
               <div
                 key={event.id}
-                className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3.5 py-3 text-sm transition-colors hover:bg-white/[0.04]"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm shadow-sm transition-colors hover:bg-slate-100"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -87,39 +87,39 @@ export function EventsPanel({ world }: EventsPanelProps) {
                       {config.label}
                     </span>
                   </div>
-                  <span className="shrink-0 text-[11px] text-slate-500">
+                  <span className="shrink-0 text-[11px] text-slate-400">
                     {new Date(event.timestamp).toLocaleTimeString()}
                   </span>
                 </div>
 
                 {Object.keys(payload).length > 0 && (
-                  <div className="mt-2 space-y-1 text-xs text-slate-400">
+                  <div className="mt-2 space-y-1 text-xs text-slate-500">
                     {summary && <div>{summary}</div>}
                     {message && <div>{message}</div>}
                     {count && (
-                      <div className="text-slate-500">
+                      <div className="text-slate-400">
                         Count: {count}
                       </div>
                     )}
                     {agentNames && (
-                      <div className="text-slate-500">
+                      <div className="text-slate-400">
                         Agents: {agentNames}
                       </div>
                     )}
                     {narrativeTitle && <div>{narrativeTitle}</div>}
                     {narrativeType && (
-                      <div className="text-slate-500">
+                      <div className="text-slate-400">
                         Type: {narrativeType}
                       </div>
                     )}
                     {agentName && event.type === 'agent_death' && cause && (
-                      <div className="flex items-center gap-1.5 text-red-400/80">
+                      <div className="flex items-center gap-1.5 text-red-600">
                         <Skull className="h-3 w-3" />
                         {agentName} - {cause}
                       </div>
                     )}
                     {oldName && event.type === 'agent_reincarnation' && newName && (
-                      <div className="flex items-center gap-1.5 text-cyan-400/80">
+                      <div className="flex items-center gap-1.5 text-cyan-600">
                         <RefreshCw className="h-3 w-3" />
                         {oldName} → {newName}
                       </div>

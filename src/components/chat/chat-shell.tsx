@@ -62,23 +62,23 @@ export function ChatShell({ world, onWorldUpdate }: ChatShellProps) {
   }
 
   return (
-    <section className="flex flex-col rounded-xl border border-white/[0.08] bg-[#141414] overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/[0.08] px-4 py-3">
-        <MessageSquare className="h-4 w-4 text-slate-400" />
-        <h2 className="text-sm font-semibold text-slate-100">Chat</h2>
+    <section className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+        <MessageSquare className="h-4 w-4 text-slate-500" />
+        <h2 className="text-sm font-semibold text-slate-800">Chat</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         <MessageList messages={messages} />
       </div>
 
-      <div className="border-t border-white/[0.08] p-3">
+      <div className="border-t border-slate-200 p-3">
         <ChatInput value={input} onChange={setInput} onSubmit={handleSubmit} disabled={loading} />
       </div>
 
       {summary ? (
-        <div className="border-t border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
-          <span className="font-medium text-slate-400">World Summary:</span>{' '}
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <span className="font-medium text-slate-500">World Summary:</span>{' '}
           {summary}
         </div>
       ) : null}

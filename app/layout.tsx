@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'World Slice',
-  themeColor: '#000000',
+  themeColor: '#FAFAFA',
 }
 
 export default function RootLayout({

@@ -6,9 +6,9 @@ const config: Config = {
     extend: {
       colors: {
         surface: {
-          DEFAULT: '#0a0a0a',
-          raised: '#141414',
-          overlay: '#1a1a1a',
+          DEFAULT: '#FAFAFA',
+          raised: '#FFFFFF',
+          overlay: '#F1F5F9',
         },
         accent: {
           DEFAULT: '#2563EB',
@@ -18,7 +18,6 @@ const config: Config = {
         cta: '#F97316',
         success: '#22C55E',
         danger: '#EF4444',
-        muted: '#64748B',
       },
       borderRadius: {
         DEFAULT: '0.5rem',

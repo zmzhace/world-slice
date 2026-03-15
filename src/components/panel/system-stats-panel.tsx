@@ -41,7 +41,6 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
   } | null>(null)
 
   React.useEffect(() => {
-    // 计算统计信息
     const timeEngine = createTimeEngine()
     const knowledgeGraph = createKnowledgeGraph(world)
 
@@ -68,16 +67,16 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h2 className="text-base font-semibold text-slate-100">System Stats</h2>
+        <h2 className="text-base font-semibold text-slate-800">System Stats</h2>
         <p className="text-xs text-slate-500 mt-0.5">
           Real-time simulation status
         </p>
       </div>
 
-      {/* 时间引擎统计 */}
-      <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.04] p-4">
-        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
-          <Clock className="h-4 w-4 text-blue-400" />
+      {/* Time engine stats */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-700">
+          <Clock className="h-4 w-4 text-blue-500" />
           Time Engine
         </h3>
         <div className="space-y-2.5 text-xs">
@@ -108,15 +107,15 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
             accent="blue"
           />
 
-          {/* 活跃度进度条 */}
-          <div className="mt-3 pt-2 border-t border-white/[0.06]">
+          {/* Activity bar */}
+          <div className="mt-3 pt-2 border-t border-blue-100">
             <div className="mb-1.5 flex items-center justify-between text-[10px]">
               <span className="text-slate-500">Activity Distribution</span>
               <span className="text-slate-400 tabular-nums">{currentHour}:00</span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-white/[0.06]">
+            <div className="h-1.5 w-full rounded-full bg-blue-100">
               <div
-                className="h-1.5 rounded-full bg-blue-500/80 transition-all duration-300"
+                className="h-1.5 rounded-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${stats.timeEngine.activityRate * 100}%` }}
               />
             </div>
@@ -124,10 +123,10 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
         </div>
       </div>
 
-      {/* 知识图谱统计 */}
-      <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-4">
-        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
-          <GitBranch className="h-4 w-4 text-violet-400" />
+      {/* Knowledge graph stats */}
+      <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-700">
+          <GitBranch className="h-4 w-4 text-violet-500" />
           Knowledge Graph
         </h3>
         <div className="space-y-2.5 text-xs">
@@ -147,8 +146,8 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
             accent="amber"
           />
 
-          {/* 节点类型分布 */}
-          <div className="mt-3 pt-2 border-t border-white/[0.06] space-y-1.5">
+          {/* Node type distribution */}
+          <div className="mt-3 pt-2 border-t border-violet-100 space-y-1.5">
             <div className="text-[10px] text-slate-500">Node Type Distribution</div>
             {Object.entries(stats.knowledgeGraph.nodesByType).map(([type, count]) => {
               const config = nodeTypeIcons[type]
@@ -156,11 +155,11 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
               const label = config?.label || type
               return (
                 <div key={type} className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-slate-400">
-                    <Icon className="h-3 w-3 text-violet-400/70" />
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Icon className="h-3 w-3 text-violet-500" />
                     {label}
                   </span>
-                  <span className="font-medium text-slate-300 tabular-nums">{count}</span>
+                  <span className="font-medium text-slate-700 tabular-nums">{count}</span>
                 </div>
               )
             })}
@@ -168,17 +167,17 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
         </div>
       </div>
 
-      {/* 推荐系统状态 */}
-      <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
-        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
-          <Crosshair className="h-4 w-4 text-emerald-400" />
+      {/* Recommendation system */}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-700">
+          <Crosshair className="h-4 w-4 text-emerald-500" />
           Recommendation System
         </h3>
         <div className="space-y-2.5 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Status</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-              <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+              <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
               Running
             </span>
           </div>
@@ -193,9 +192,9 @@ export function SystemStatsPanel({ world }: SystemStatsPanelProps) {
         </div>
       </div>
 
-      {/* 系统性能 */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
-        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-200">
+      {/* Performance */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+        <h3 className="flex items-center gap-2 mb-3 font-semibold text-sm text-slate-700">
           <Activity className="h-4 w-4 text-slate-400" />
           Performance
         </h3>
@@ -239,7 +238,7 @@ function StatRow({
     <div className="flex items-center justify-between">
       <span className="text-slate-500">{label}</span>
       <span className={`font-medium tabular-nums ${
-        accent === 'amber' ? 'text-amber-400' : 'text-blue-400'
+        accent === 'amber' ? 'text-amber-600' : 'text-blue-600'
       }`}>
         {value}
       </span>

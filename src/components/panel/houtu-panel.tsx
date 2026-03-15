@@ -19,48 +19,46 @@ type HoutuPanelProps = {
 }
 
 export function HoutuPanel({ world }: HoutuPanelProps) {
-  // 统计生死数据
   const aliveAgents = world.agents.npcs.filter(a => a.life_status === 'alive')
   const deadAgents = world.agents.npcs.filter(a => a.life_status === 'dead')
   const reincarnatedAgents = world.agents.npcs.filter(a =>
     a.genetics.seed.includes('-reborn-')
   )
 
-  // 获取死亡和轮回事件
   const deathEvents = world.events.filter(e => e.type === 'agent_death')
   const reincarnationEvents = world.events.filter(e => e.type === 'agent_reincarnation')
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
       <div className="mb-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-100">
-          <Activity className="h-5 w-5 text-zinc-400" />
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+          <Activity className="h-5 w-5 text-slate-500" />
           Life Cycle
         </h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-slate-400">
           Birth, death, and rebirth of agents
         </p>
       </div>
 
       {/* Stats overview */}
       <div className="mb-6 grid grid-cols-3 gap-3">
-        <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-4">
-          <div className="text-2xl font-bold tabular-nums text-emerald-400">{aliveAgents.length}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-500/80">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div className="text-2xl font-bold tabular-nums text-emerald-600">{aliveAgents.length}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-500">
             <Sprout className="h-3 w-3" />
             Alive
           </div>
         </div>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="text-2xl font-bold tabular-nums text-zinc-400">{deadAgents.length}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="text-2xl font-bold tabular-nums text-slate-500">{deadAgents.length}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
             <Skull className="h-3 w-3" />
             Deceased
           </div>
         </div>
-        <div className="rounded-lg border border-violet-900/40 bg-violet-950/20 p-4">
-          <div className="text-2xl font-bold tabular-nums text-violet-400">{reincarnatedAgents.length}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-violet-500/80">
+        <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+          <div className="text-2xl font-bold tabular-nums text-violet-600">{reincarnatedAgents.length}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-violet-500">
             <RefreshCw className="h-3 w-3" />
             Reborn
           </div>
@@ -70,7 +68,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
       {/* Alive agents */}
       {aliveAgents.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
             <Sprout className="h-3.5 w-3.5" />
             Alive
           </h3>
@@ -78,21 +76,21 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
             {aliveAgents.map((agent) => (
               <div
                 key={agent.genetics.seed}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3"
+                className="rounded-lg border border-slate-200 bg-slate-50 shadow-sm p-3"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="flex items-center gap-2 font-medium text-zinc-200">
-                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                    <div className="flex items-center gap-2 font-medium text-slate-800">
+                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
                       {agent.identity.name}
                       {agent.genetics.seed.includes('-reborn-') && (
-                        <span className="inline-flex items-center gap-1 rounded border border-violet-800/50 bg-violet-950/30 px-1.5 py-0.5 text-[10px] text-violet-400">
+                        <span className="inline-flex items-center gap-1 rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600">
                           <RefreshCw className="h-2.5 w-2.5" />
                           Reborn
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500">
+                    <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
                       <span className="flex items-center gap-1">
                         <Heart className="h-3 w-3" />
                         Aging {Math.floor(agent.vitals.aging_index * 100)}%
@@ -105,7 +103,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
                   </div>
                 </div>
                 {agent.goals.length > 0 && (
-                  <div className="mt-2 flex items-start gap-1.5 text-xs text-zinc-500">
+                  <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-400">
                     <Target className="mt-0.5 h-3 w-3 shrink-0" />
                     <span>{agent.goals.slice(0, 2).join(', ')}</span>
                   </div>
@@ -119,7 +117,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
       {/* Dead agents */}
       {deadAgents.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
             <Skull className="h-3.5 w-3.5" />
             Deceased
           </h3>
@@ -127,24 +125,24 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
             {deadAgents.map((agent) => (
               <div
                 key={agent.genetics.seed}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3"
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="flex items-center gap-2 font-medium text-zinc-400">
-                      <span className="inline-block h-2 w-2 rounded-full bg-red-500/70" />
+                    <div className="flex items-center gap-2 font-medium text-slate-500">
+                      <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
                       {agent.identity.name}
                     </div>
-                    <div className="mt-1 text-xs text-zinc-600">
+                    <div className="mt-1 text-xs text-slate-400">
                       {agent.cause_of_death || 'Unknown cause'}
                       {agent.death_tick && (
-                        <span className="ml-2 text-zinc-700">Tick {agent.death_tick}</span>
+                        <span className="ml-2 text-slate-300">Tick {agent.death_tick}</span>
                       )}
                     </div>
                   </div>
                 </div>
                 {agent.legacy && agent.legacy.length > 0 && (
-                  <div className="mt-2 flex items-start gap-1.5 text-xs text-zinc-600">
+                  <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-400">
                     <BookOpen className="mt-0.5 h-3 w-3 shrink-0" />
                     <span>Legacy: {agent.legacy.join(', ')}</span>
                   </div>
@@ -158,7 +156,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
       {/* Death events */}
       {deathEvents.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
             <CircleDot className="h-3.5 w-3.5" />
             Death Records
           </h3>
@@ -166,18 +164,18 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
             {deathEvents.slice(-5).reverse().map((event) => (
               <div
                 key={event.id}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-sm"
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
               >
                 <div className="flex items-start gap-2.5">
-                  <Skull className="mt-0.5 h-4 w-4 shrink-0 text-zinc-600" />
+                  <Skull className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                   <div className="flex-1">
-                    <div className="font-medium text-zinc-300">
+                    <div className="font-medium text-slate-600">
                       {event.payload?.agent_name as string}
                     </div>
-                    <div className="mt-0.5 text-xs text-zinc-500">
+                    <div className="mt-0.5 text-xs text-slate-400">
                       {event.payload?.cause as string}
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-zinc-600">
+                    <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
                       <Clock className="h-3 w-3" />
                       {new Date(event.timestamp).toLocaleString()}
                     </div>
@@ -192,7 +190,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
       {/* Reincarnation events */}
       {reincarnationEvents.length > 0 && (
         <div>
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
             <RefreshCw className="h-3.5 w-3.5" />
             Rebirth Records
           </h3>
@@ -200,22 +198,22 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
             {reincarnationEvents.slice(-5).reverse().map((event) => (
               <div
                 key={event.id}
-                className="rounded-lg border border-violet-900/30 bg-violet-950/10 p-3 text-sm"
+                className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm"
               >
                 <div className="flex items-start gap-2.5">
                   <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
                   <div className="flex-1">
-                    <div className="font-medium text-zinc-300">
+                    <div className="font-medium text-slate-600">
                       {event.payload?.old_name as string}
-                      <span className="mx-2 text-zinc-600">&rarr;</span>
-                      <span className="text-violet-300">{event.payload?.new_name as string}</span>
+                      <span className="mx-2 text-slate-400">&rarr;</span>
+                      <span className="text-violet-600">{event.payload?.new_name as string}</span>
                     </div>
-                    <div className="mt-0.5 text-xs text-zinc-500">
+                    <div className="mt-0.5 text-xs text-slate-400">
                       {event.payload?.old_role as string}
-                      <span className="mx-1 text-zinc-700">&rarr;</span>
+                      <span className="mx-1 text-slate-300">&rarr;</span>
                       {event.payload?.new_role as string}
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-zinc-600">
+                    <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
                       <Clock className="h-3 w-3" />
                       {new Date(event.timestamp).toLocaleString()}
                     </div>
@@ -229,7 +227,7 @@ export function HoutuPanel({ world }: HoutuPanelProps) {
 
       {/* Empty state */}
       {aliveAgents.length === 0 && deadAgents.length === 0 && (
-        <div className="py-8 text-center text-sm text-zinc-600">
+        <div className="py-8 text-center text-sm text-slate-400">
           No agents yet. Please initialize the world first.
         </div>
       )}

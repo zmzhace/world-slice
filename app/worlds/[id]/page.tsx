@@ -142,9 +142,9 @@ export default function WorldDetailPage() {
 
   if (!worldRecord) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+      <main className="flex min-h-screen items-center justify-center bg-[#FAFAFA]">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-slate-200">
+          <h1 className="text-2xl font-semibold text-slate-800">
             {worldRecord === undefined ? 'Loading world...' : 'World not found'}
           </h1>
           {worldRecord === null && (
@@ -159,9 +159,9 @@ export default function WorldDetailPage() {
 
   if (!world) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+      <main className="flex min-h-screen items-center justify-center bg-[#FAFAFA]">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-slate-200">Loading world...</h1>
+          <h1 className="text-2xl font-semibold text-slate-800">Loading world...</h1>
         </div>
       </main>
     )
@@ -170,25 +170,25 @@ export default function WorldDetailPage() {
   // --- Main render ---
 
   return (
-    <main className="min-h-screen bg-[#0a0a0f] text-slate-200">
+    <main className="min-h-screen bg-[#FAFAFA] text-slate-800">
       {/* ===== Header / Top Bar ===== */}
-      <div className="sticky top-0 z-10 border-b border-white/[0.06] bg-white/[0.03] backdrop-blur-xl">
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm">
         <div className="mx-auto max-w-7xl px-6 py-3">
           <div className="flex items-center justify-between">
             {/* Left: back + title */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push('/worlds')}
-                className="flex items-center justify-center rounded-lg p-2 text-slate-400 transition-all duration-200 hover:bg-white/[0.06] hover:text-slate-200 cursor-pointer"
+                className="flex items-center justify-center rounded-xl p-2 text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                 aria-label="Back"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
 
-              <div className="h-6 w-px bg-white/[0.08]" />
+              <div className="h-6 w-px bg-slate-200" />
 
               <div className="min-w-0">
-                <h1 className="truncate text-lg font-bold text-slate-100">
+                <h1 className="truncate text-lg font-bold text-slate-800">
                   {world?.title || 'World Slice'}
                 </h1>
                 <p className="truncate text-xs text-slate-500 max-w-[260px]">
@@ -200,26 +200,26 @@ export default function WorldDetailPage() {
             {/* Right: tick controls */}
             <div className="flex items-center gap-2">
               {/* Tick badge */}
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5">
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5">
                 <Clock className="h-3.5 w-3.5 text-slate-400" />
-                <span className="text-xs font-medium text-slate-400">Tick</span>
-                <span className="min-w-[1.5rem] text-center text-sm font-bold text-slate-100">
+                <span className="text-xs font-medium text-slate-500">Tick</span>
+                <span className="min-w-[1.5rem] text-center text-sm font-bold text-slate-800">
                   {world?.tick || 0}
                 </span>
               </div>
 
               {/* Auto-advance tick count */}
-              <div className="flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5">
+              <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5">
                 <input
                   type="number"
                   min="1"
                   max="100"
                   value={autoAdvanceTicks}
                   onChange={(e) => setAutoAdvanceTicks(Math.max(1, parseInt(e.target.value) || 10))}
-                  className="w-10 rounded bg-transparent px-1 py-0.5 text-xs text-center text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="w-10 rounded bg-transparent px-1 py-0.5 text-xs text-center text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   disabled={autoAdvancing}
                 />
-                <span className="text-xs text-slate-500 hidden sm:inline">ticks</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">ticks</span>
               </div>
 
               {/* Auto-advance toggle */}
@@ -228,8 +228,8 @@ export default function WorldDetailPage() {
                 disabled={!world || world.agents.npcs.length === 0 || advancing}
                 className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
                   autoAdvancing
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                    : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
+                    ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                    : 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
                 }`}
               >
                 {autoAdvancing ? (
@@ -244,7 +244,7 @@ export default function WorldDetailPage() {
               <button
                 onClick={handleAdvanceTime}
                 disabled={advancing || !world || world.agents.npcs.length === 0 || autoAdvancing}
-                className="flex items-center gap-1.5 rounded-full bg-blue-500/20 px-3.5 py-1.5 text-sm font-medium text-blue-400 transition-all duration-200 hover:bg-blue-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3.5 py-1.5 text-sm font-medium text-blue-600 transition-all duration-200 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <SkipForward className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">{advancing ? 'Running...' : '+1 Tick'}</span>
@@ -257,14 +257,14 @@ export default function WorldDetailPage() {
       {/* ===== Tick Summary / Chronicle ===== */}
       {world.tick_summary && (
         <div className="mx-auto max-w-7xl px-6 pt-5">
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 border-l-2 border-l-blue-500/60">
+          <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm border-l-4 border-l-blue-500">
             <div className="mb-3 flex items-center gap-2.5">
-              <span className="text-base font-semibold text-slate-100" style={{ textShadow: '0 0 20px rgba(96,165,250,0.3)' }}>
+              <span className="text-base font-semibold text-slate-800">
                 Tick {world.tick}
               </span>
-              <div className="h-px flex-1 bg-gradient-to-r from-white/[0.06] to-transparent" />
+              <div className="h-px flex-1 bg-slate-100" />
             </div>
-            <div className="text-base leading-relaxed text-slate-300 whitespace-pre-line">
+            <div className="text-base leading-relaxed text-slate-600 whitespace-pre-line">
               {world.tick_summary}
             </div>
           </div>
@@ -276,7 +276,7 @@ export default function WorldDetailPage() {
         <div className="grid gap-5 lg:grid-cols-12">
           {/* Chat column */}
           <div className="lg:col-span-5">
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03]">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
               <ChatShell world={world} onWorldUpdate={setWorld} />
             </div>
           </div>
@@ -290,8 +290,8 @@ export default function WorldDetailPage() {
                   key={key}
                   className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 cursor-pointer ${
                     activeTab === key
-                      ? 'bg-blue-500/20 text-blue-400'
-                      : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-200'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                   }`}
                   onClick={() => setActiveTab(key)}
                 >
@@ -302,7 +302,7 @@ export default function WorldDetailPage() {
             </div>
 
             {/* Tab Content */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03]">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
               {activeTab === 'world' && <PanelShell world={world} />}
               {activeTab === 'observer' && <AgentObserverPanel world={world} />}
               {activeTab === 'agents' && (

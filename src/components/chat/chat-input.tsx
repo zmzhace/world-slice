@@ -12,7 +12,7 @@ export function ChatInput({ value, onChange, onSubmit, disabled }: ChatInputProp
   return (
     <div className="flex items-end gap-2">
       <textarea
-        className="flex-1 resize-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+        className="flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 outline-none transition-colors focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {

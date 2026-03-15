@@ -2,16 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Dark OLED foundation ── */
+/* ── Light warm foundation ── */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background-color: #000;
-  color: #e2e8f0;
+  background-color: #FAFAFA;
+  color: #1E293B;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -20,7 +20,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #334155 #0a0a0a;
+  scrollbar-color: #CBD5E1 #F1F5F9;
 }
 
 ::-webkit-scrollbar {
@@ -29,16 +29,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #F1F5F9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #CBD5E1;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #94A3B8;
 }
 
 /* ── Utility classes ── */
@@ -47,13 +47,14 @@ body {
   .glass {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.80);
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   }
 
   .glow {
-    box-shadow: 0 0 20px rgba(37, 99, 235, 0.15),
-                0 0 4px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 10px 25px -3px rgba(37, 99, 235, 0.08),
+                0 4px 6px -4px rgba(37, 99, 235, 0.05);
   }
 }
 
