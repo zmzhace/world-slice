@@ -155,7 +155,7 @@ For each agent, provide:
 9. approach: how they handle things (brief description)
 10. expertise: 3-5 specific skills relevant to the world
 11. core_belief: one sentence - the core value driving this character's behavior
-12. location: initial location (a specific place name fitting the world; spread characters across different locations)
+12. location: initial location (use only 2-3 distinct locations for ALL characters — most people should be near others so interactions happen immediately)
 
 **Relationship network requirements (critical):**
 - Each character must have relationships with at least 2 others
