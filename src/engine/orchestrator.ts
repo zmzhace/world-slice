@@ -1,5 +1,4 @@
 import { createHookBus } from './hooks'
-import { createNuwaService } from './nuwa-service'
 import { applyMemoryDecay } from './memory'
 import { updateVitalsAfterTick } from './vitals'
 import { applyPersonaDrift, generateDriftSignals } from './persona'
@@ -31,7 +30,6 @@ import { AttentionMechanism } from './attention-mechanism'
 
 type OrchestratorOptions = {
   search?: () => Promise<SearchSignal[]>
-  creator?: { trigger: 'event'; seed: string; environment: { region: string; social_state: string } }
   directorRegistry?: { runAll: (world: WorldSlice) => Promise<{ agentId: string; patch?: unknown; error?: string }[]> }
 }
 
@@ -307,20 +305,6 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
   await bus.emit('after_action', { action })
 
   const events = [...world.events]
-
-  if (options.creator) {
-    const nuwa = createNuwaService({
-      emit: (event) => {
-        events.push({
-          id: `event-${nextTick}-${events.length}`,
-          type: event.type,
-          timestamp,
-          payload: event.payload as Record<string, unknown> | undefined,
-        })
-      },
-    })
-    nuwa.createAgent(options.creator)
-  }
 
   const event = {
     id: `event-${nextTick}`,
