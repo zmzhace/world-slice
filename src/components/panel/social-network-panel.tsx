@@ -86,6 +86,7 @@ export function SocialNetworkPanel({ world }: SocialNetworkPanelProps) {
                 renderEdgeLabels: false,
                 labelRenderedSizeThreshold: 0,
                 defaultEdgeType: 'line',
+                allowInvalidContainer: true,
               }}
             />
           </React.Suspense>
