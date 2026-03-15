@@ -8,3 +8,14 @@ test-results
 .env.local
 .DS_Store
 .worktrees
+
+# Build artifacts
+tsconfig.tsbuildinfo
+
+# Local data
+data/
+qdrant_storage/
+
+# Editor / IDE
+.claude/
+CLAUDE.md
