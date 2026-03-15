@@ -669,8 +669,37 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
 
   // ===== Phase 4-5: Advanced mechanism systems =====
   
-  // 1. Reputation system — update social network and apply decay
+  // 1. Reputation system — update from NPC actions + social network + decay
   reputationSystem.updateSocialNetwork(next)
+
+  // Initialize reputation for all agents and update from their actions this tick
+  for (const result of npcResults) {
+    const agent = next.agents.npcs.find(a => a.genetics.seed === result.agentId)
+    if (!agent) continue
+
+    // Ensure agent has reputation
+    if (!reputationSystem.getAllReputations().has(result.agentId)) {
+      reputationSystem.initializeReputation(agent)
+    }
+
+    // Derive reputation impact from action
+    const meta = result.patch.meta || {}
+    const actionType = meta.actionType as string || ''
+    const isConflict = result.patch.events?.some(e => e.conflict) ?? false
+    const colocatedIds = next.agents.npcs
+      .filter(a => a.genetics.seed !== result.agentId && a.location === agent.location)
+      .map(a => a.genetics.seed)
+
+    if (actionType && colocatedIds.length > 0) {
+      reputationSystem.updateReputation(agent, {
+        type: isConflict ? 'compete' : actionType.includes('help') ? 'help' : actionType.includes('teach') ? 'teach' : 'cooperate',
+        target: meta.agentId as string || undefined,
+        success: !isConflict,
+        witnesses: colocatedIds,
+      }, nextTick)
+    }
+  }
+
   reputationSystem.applyDecay(nextTick)
   const reputationStats = reputationSystem.getStats()
   if (nextTick % 10 === 0) {
@@ -707,9 +736,31 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     console.log(`[RoleSystem] ${roleStats.total_roles} roles, ${roleStats.total_conflicts} conflicts`)
   }
   
-  // 3. Resource competition system — allocate resources
+  // 3. Resource competition system — allocate resources and apply results to agents
   const resourceResults = resourceSystem.allocateAllResources(next.agents.npcs)
   resourceSystem.regenerateResources()
+
+  // Feed resource results back into agent vitals
+  const foodResult = resourceResults.get('food')
+  if (foodResult) {
+    for (const npc of next.agents.npcs) {
+      const allocation = foodResult.allocations.get(npc.genetics.seed) || 0
+      if (allocation > 0) {
+        // Got food → recover energy
+        npc.vitals.energy = Math.min(1, npc.vitals.energy + allocation * 0.01)
+      } else if (npc.vitals.energy < 0.5) {
+        // Didn't get food and already low → drain faster
+        npc.vitals.energy = Math.max(0, npc.vitals.energy - 0.02)
+      }
+    }
+    // Conflicts from resource competition generate tension between involved agents
+    for (const conflict of foodResult.conflicts) {
+      if (conflict.agents.length >= 2) {
+        tensionSystem.updateFromLLMFeedback(conflict.agents[0], 'building', nextTick)
+      }
+    }
+  }
+
   const resourceStats = resourceSystem.getStats()
   if (nextTick % 10 === 0) {
     console.log(`[ResourceSystem] Scarcity: ${resourceStats.scarcity_avg.toFixed(2)}, Claims: ${resourceStats.total_claims}`)

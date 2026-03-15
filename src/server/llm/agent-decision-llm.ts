@@ -209,81 +209,119 @@ function buildAgentPrompt(agent: PersonalAgentState, world: WorldSlice): string 
     })
     .join('\n')
 
-  // === System output injection ===
-  const systemHints: string[] = []
+  // === System pressure injection — make mechanisms felt ===
+  const pressures: string[] = []
 
-  // Reputation (enhanced: ranking + recent changes)
+  // Reputation pressure — who's above you, who's threatening your position
   if (world.systems?.reputation) {
-    const repData = (world.systems.reputation as any).reputations?.[agent.genetics.seed]
-    if (repData) {
-      // Direct dimension scores
-      const dimEntries: string[] = []
-      for (const dim of ['trustworthiness', 'competence', 'benevolence', 'status', 'influence'] as const) {
-        const score = repData[dim] as number | undefined
-        if (score != null && Math.abs(score - 0.5) > 0.1) {
-          dimEntries.push(`${dim}: ${score > 0.6 ? 'good' : score < 0.4 ? 'poor' : 'neutral'}`)
-        }
-      }
-      if (dimEntries.length > 0) {
-        systemHints.push(`Your reputation: ${dimEntries.join(', ')}`)
-      }
+    const allReps = (world.systems.reputation as any).reputations as Record<string, any> | undefined
+    const myRep = allReps?.[agent.genetics.seed]
 
-      // Recent reputation changes
-      const history = (repData.history as Array<{ tick: number; action_type: string; impact: Record<string, number> }>) || []
-      const recentChanges = history.slice(-3)
-      for (const event of recentChanges) {
-        const changes = Object.entries(event.impact || {})
-          .filter(([, delta]) => Math.abs(delta as number) > 0.02)
-          .map(([dim, delta]) => `${dim} ${(delta as number) > 0 ? 'rose' : 'dropped'}`)
-        if (changes.length > 0) {
-          systemHints.push(`Recently your ${changes.join(', ')}`)
-        }
-      }
-    }
-
-    // Reputation ranking (where do you stand?)
-    const allReps = (world.systems.reputation as any).reputations
-    if (allReps) {
-      const entries = Object.entries(allReps) as [string, { influence: number }][]
+    if (myRep && allReps) {
+      // Find who's above and below you
+      const entries = Object.entries(allReps)
       const sorted = entries.sort((a, b) => (b[1].influence || 0) - (a[1].influence || 0))
       const myRank = sorted.findIndex(([id]) => id === agent.genetics.seed)
-      if (myRank >= 0 && sorted.length > 1) {
-        systemHints.push(`Your influence rank: ${myRank + 1} of ${sorted.length}`)
+
+      if (myRank >= 0) {
+        const above = myRank > 0 ? sorted[myRank - 1] : null
+        const below = myRank < sorted.length - 1 ? sorted[myRank + 1] : null
+
+        const aboveName = above ? world.agents.npcs.find(a => a.genetics.seed === above[0])?.identity.name : null
+        const belowName = below ? world.agents.npcs.find(a => a.genetics.seed === below[0])?.identity.name : null
+
+        if (myRank <= 2 && sorted.length > 3) {
+          pressures.push(`You are one of the most influential people here (rank ${myRank + 1}). Others look to you for direction.`)
+        } else if (myRank >= sorted.length - 2 && sorted.length > 3) {
+          pressures.push(`You have little influence here (rank ${myRank + 1} of ${sorted.length}). ${aboveName ? `${aboveName} holds the power you lack.` : ''}`)
+        }
+
+        if (belowName && below && Math.abs((below[1].influence || 0) - (myRep.influence || 0)) < 0.1) {
+          pressures.push(`${belowName} is catching up to your influence — your position is not secure.`)
+        }
+      }
+
+      // Reputation damage
+      if (myRep.trustworthiness < 0.35) {
+        pressures.push(`People don't trust you. Your promises carry little weight.`)
+      }
+      if (myRep.benevolence < 0.3) {
+        pressures.push(`You are seen as selfish. Few will help you when you need it.`)
+      }
+
+      // Recent reputation events
+      const history = (myRep.history as Array<{ tick: number; action_type: string; impact: Record<string, number>; description: string }>) || []
+      const recentEvent = history.slice(-1)[0]
+      if (recentEvent?.description) {
+        pressures.push(`Recent: ${recentEvent.description}`)
       }
     }
   }
 
-  // Resources
+  // Resource pressure — concrete scarcity, not abstract
   if (world.systems?.resources) {
-    const resources = (world.systems.resources as any).resources
+    const resources = (world.systems.resources as any).resources as Record<string, any> | undefined
     if (resources) {
-      const scarce = Object.entries(resources)
-        .filter(([, v]) => (v as any).current_amount / Math.max(1, (v as any).max_amount) < 0.3)
-        .map(([, v]) => (v as any).name)
-        .slice(0, 3)
-      if (scarce.length > 0) systemHints.push(`Scarce resources: ${scarce.join(', ')}`)
+      for (const [, res] of Object.entries(resources)) {
+        const ratio = (res.amount || 0) / Math.max(1, res.max_amount || 100)
+        if (ratio < 0.3 && res.name) {
+          const daysLeft = Math.max(1, Math.floor(res.amount / Math.max(1, res.regeneration_rate || 1)))
+          pressures.push(`${res.name} is running dangerously low (${Math.floor(ratio * 100)}% remaining, ~${daysLeft} cycles before depletion). Competition for it will intensify.`)
+        }
+      }
     }
   }
 
-  // Dramatic tension
+  // Tension pressure — specific, involving named agents
   if (world.systems?.tension) {
-    const tensions = (world.systems.tension as any).tensions
+    const tensions = (world.systems.tension as any).tensions as Record<string, any> | undefined
     if (tensions) {
-      const active = Object.values(tensions)
-        .filter((t: any) => t.status === 'building' || t.status === 'peak')
-        .map((t: any) => t.description || t.source)
-        .slice(0, 2)
-      if (active.length > 0) systemHints.push(`Undercurrents: ${active.join('; ')}`)
+      for (const [, t] of Object.entries(tensions)) {
+        if ((t.status === 'building' || t.status === 'peak') && Array.isArray(t.target_agents) && t.target_agents.includes(agent.genetics.seed)) {
+          const otherIds = (t.target_agents as string[]).filter((id: string) => id !== agent.genetics.seed)
+          const otherNames = otherIds
+            .map((id: string) => world.agents.npcs.find(a => a.genetics.seed === id)?.identity.name)
+            .filter(Boolean)
+          const level = t.level as number || 0
+          if (level > 0.7) {
+            pressures.push(`A crisis is reaching its peak${otherNames.length > 0 ? ` involving you and ${otherNames.join(', ')}` : ''}: ${t.source || 'things cannot continue like this'}.`)
+          } else if (level > 0.4) {
+            pressures.push(`Tension is building${otherNames.length > 0 ? ` between you and ${otherNames.join(', ')}` : ''}: ${t.source || 'something has to give'}.`)
+          }
+        }
+      }
     }
   }
 
-  // Social roles
+  // Social role pressure — expectations and conflicts
   if (world.systems?.social_roles) {
-    const roles = (world.systems.social_roles as any).agentRoles?.[agent.genetics.seed]
+    const roles = (world.systems.social_roles as any).agentRoles?.[agent.genetics.seed] as Array<{ name: string; expectations: string[]; obligations: string[] }> | undefined
     if (roles && roles.length > 0) {
-      systemHints.push(`Your social roles: ${roles.map((r: any) => r.name || r.type).join(', ')}`)
+      const primaryRole = roles[0]
+      if (primaryRole.obligations?.length > 0) {
+        pressures.push(`As ${primaryRole.name}, you are expected to: ${primaryRole.obligations.slice(0, 2).join('; ')}.`)
+      }
+    }
+    const conflicts = (world.systems.social_roles as any).roleConflicts as Array<{ agent_id: string; conflict_description: string }> | undefined
+    if (conflicts) {
+      const myConflicts = conflicts.filter((c: any) => c.agent_id === agent.genetics.seed)
+      for (const c of myConflicts.slice(0, 1)) {
+        pressures.push(`You feel torn: ${c.conflict_description}`)
+      }
     }
   }
+
+  // Agent vitals pressure — body speaks
+  if (agent.vitals.energy < 0.25) {
+    pressures.push(`You are exhausted. Your body demands rest or sustenance.`)
+  }
+  if (agent.vitals.stress > 0.7) {
+    pressures.push(`You are highly stressed. The pressure is becoming unbearable.`)
+  }
+
+  const pressureSection = pressures.length > 0
+    ? `\n## Pressures bearing down on you\n${pressures.map(p => `- ${p}`).join('\n')}`
+    : ''
 
   // Meme whispers — ideas that have spread to this agent
   let whispersSection = ''
@@ -322,9 +360,7 @@ function buildAgentPrompt(agent: PersonalAgentState, world: WorldSlice): string 
     }
   }
 
-  const systemSection = systemHints.length > 0
-    ? `\n## Undercurrents (things you vaguely sense)\n${systemHints.map(h => `- ${h}`).join('\n')}`
-    : ''
+  const systemSection = '' // replaced by pressureSection
 
   // Colocated people — build a rich scene description
   const colocatedNames = colocated.map(a => a.identity.name).join(', ')
@@ -403,7 +439,7 @@ ${rumors ? `\n## Hearsay (unverified rumors)\n${rumors}` : ''}
 
 ## Stories you are involved in
 ${activeNarratives || 'None'}
-${systemSection}${whispersSection}${roleModelsSection}
+${pressureSection}${whispersSection}${roleModelsSection}
 
 ---
 
