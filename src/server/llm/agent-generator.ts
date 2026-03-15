@@ -55,13 +55,91 @@ export async function generatePersonalAgents(
 ): Promise<PersonalAgentState[]> {
   const { prompt, count } = options
 
-  const client = createAnthropicClient()
+  // Split into batches of 5 to avoid API timeouts on large requests
+  const BATCH_SIZE = 5
+  const allAgents: PersonalAgentState[] = []
+  const allRelationSpecs: RelationSpec[] = []
 
+  const totalBatches = Math.ceil(count / BATCH_SIZE)
+
+  for (let batch = 0; batch < totalBatches; batch++) {
+    const batchCount = Math.min(BATCH_SIZE, count - batch * BATCH_SIZE)
+    const existingNames = allAgents.map(a => `${a.identity.name} (${a.occupation || 'unknown'}, seed: ${a.genetics.seed})`).join(', ')
+
+    console.log(`Agent generator: batch ${batch + 1}/${totalBatches}, generating ${batchCount} agents...`)
+
+    const { specs, relationSpecs } = await generateAgentBatch(prompt, batchCount, existingNames)
+
+    // Convert specs to PersonalAgentState
+    const agents = specs.map((spec) => {
+      const agent = createPersonalAgent(spec.seed)
+      return {
+        ...agent,
+        identity: { name: spec.name || spec.seed },
+        persona: spec.persona,
+        vitals: spec.vitals,
+        goals: spec.goals || [],
+        occupation: spec.occupation,
+        voice: spec.voice,
+        approach: spec.approach,
+        expertise: spec.expertise,
+        core_belief: spec.core_belief,
+        location: spec.location || 'unknown',
+        success_metrics: {
+          wealth: 0,
+          reputation: 0,
+          power: 0,
+          knowledge: 0,
+        },
+      }
+    })
+
+    allAgents.push(...agents)
+    allRelationSpecs.push(...relationSpecs)
+  }
+
+  // Write relationships into each NPC's relations field (across all batches)
+  for (const rel of allRelationSpecs) {
+    const fromAgent = allAgents.find(a => a.genetics.seed === rel.from)
+    if (fromAgent) {
+      fromAgent.relations[rel.to] = Math.max(-1, Math.min(1, rel.value))
+      const toAgent = allAgents.find(a => a.genetics.seed === rel.to)
+      if (toAgent) {
+        fromAgent.memory_short.push({
+          id: `init-rel-${rel.from}-${rel.to}`,
+          content: `Relationship with ${toAgent.identity.name}: ${rel.label}`,
+          importance: 0.7,
+          emotional_weight: Math.abs(rel.value) * 0.5,
+          source: 'self' as const,
+          timestamp: new Date().toISOString(),
+          decay_rate: 0.02,
+          retrieval_strength: 0.9,
+        })
+      }
+    }
+  }
+
+  return allAgents
+}
+
+/**
+ * Generate a single batch of agents via LLM
+ */
+async function generateAgentBatch(
+  worldContext: string,
+  count: number,
+  existingAgents: string
+): Promise<{ specs: AgentSpec[]; relationSpecs: RelationSpec[] }> {
+  const client = createAnthropicClient()
   const model = getModel()
+
+  const existingSection = existingAgents
+    ? `\n\n**Already created characters:** ${existingAgents}\nNew characters MUST have relationships with at least 1 existing character. Use their seeds in the relations array.`
+    : ''
 
   const systemPrompt = `You are a character creator for a world simulation. Based on the world context below, generate ${count} unique agents and establish their social relationship network.
 
-World context: ${prompt}
+World context: ${worldContext}${existingSection}
 
 For each agent, provide:
 1. seed: unique identifier (kebab-case, descriptive, for internal system use)
@@ -84,18 +162,11 @@ For each agent, provide:
 - Diverse relationship types: allies, rivals, mentor-student, family, secret admirers, debts, grudges, etc.
 - Relationship values range from -1 (mortal enemies) to 1 (closest bond), 0 is neutral
 - Relationships must be bidirectional but not necessarily symmetric (A likes B doesn't mean B likes A)
-- Relationships should have specific reasons
-
-**Creative requirements:**
-- Characters must have conflict and tension; not everyone should be peaceful
-- At least one pair of opposing relationships (competition, hatred, conflict of interest)
-- At least one cooperative group (mentor-student, allies, family)
-- Backstories should interweave to form a social network
 
 **Language requirement:**
-- Generate ALL content (names, backstories, goals, locations, etc.) in the SAME language as the world context above
+- Generate ALL content in the SAME language as the world context above
 
-Return a JSON object (not an array):
+Return a JSON object:
 {
   "agents": [
     {
@@ -114,14 +185,14 @@ Return a JSON object (not an array):
     }
   ],
   "relations": [
-    { "from": "agent-a", "to": "agent-b", "value": -0.4, "label": "reason for this relationship" },
-    { "from": "agent-b", "to": "agent-a", "value": 0.3, "label": "reason for this relationship" }
+    { "from": "agent-a", "to": "agent-b", "value": -0.4, "label": "reason" },
+    { "from": "agent-b", "to": "agent-a", "value": 0.3, "label": "reason" }
   ]
 }`
 
   const responseText = await streamText(client, {
     model,
-    max_tokens: 16384,
+    max_tokens: 8192,
     messages: [
       {
         role: 'user',
@@ -134,9 +205,7 @@ Return a JSON object (not an array):
     throw new Error('No text content in response')
   }
 
-  console.log('Agent generator response:', responseText)
-
-  // Extract JSON from response - now expecting an object with agents and relations
+  // Extract JSON from response
   const jsonMatch = responseText.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     throw new Error('Failed to parse agent specifications from response')
@@ -144,7 +213,6 @@ Return a JSON object (not an array):
 
   const parsed = JSON.parse(jsonMatch[0])
 
-  // Support both legacy format (array) and new format (object)
   let specs: AgentSpec[]
   let relationSpecs: RelationSpec[] = []
 
@@ -155,51 +223,5 @@ Return a JSON object (not an array):
     relationSpecs = parsed.relations || []
   }
 
-  // Convert specs to PersonalAgentState
-  const agents = specs.map((spec) => {
-    const agent = createPersonalAgent(spec.seed)
-    return {
-      ...agent,
-      identity: { name: spec.name || spec.seed }, 
-      persona: spec.persona,
-      vitals: spec.vitals,
-      goals: spec.goals || [],
-      occupation: spec.occupation,
-      voice: spec.voice,
-      approach: spec.approach,
-      expertise: spec.expertise,
-      core_belief: spec.core_belief,
-      location: spec.location || 'unknown',
-      success_metrics: {
-        wealth: 0,
-        reputation: 0,
-        power: 0,
-        knowledge: 0,
-      },
-    }
-  })
-
-  // Write relationships into each NPC's relations field
-  for (const rel of relationSpecs) {
-    const fromAgent = agents.find(a => a.genetics.seed === rel.from)
-    if (fromAgent) {
-      fromAgent.relations[rel.to] = Math.max(-1, Math.min(1, rel.value))
-      // Store relationship description in short-term memory
-      const toAgent = agents.find(a => a.genetics.seed === rel.to)
-      if (toAgent) {
-        fromAgent.memory_short.push({
-          id: `init-rel-${rel.from}-${rel.to}`,
-          content: `Relationship with ${toAgent.identity.name}: ${rel.label}`,
-          importance: 0.7,
-          emotional_weight: Math.abs(rel.value) * 0.5,
-          source: 'self' as const,
-          timestamp: new Date().toISOString(),
-          decay_rate: 0.02, // Initial relationship memories decay slowly
-          retrieval_strength: 0.9,
-        })
-      }
-    }
-  }
-
-  return agents
+  return { specs, relationSpecs }
 }

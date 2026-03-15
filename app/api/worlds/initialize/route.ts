@@ -33,8 +33,9 @@ export async function POST(request: Request) {
     console.log('✓ World generated')
     console.log('2. Creating agents...')
 
-    // 2. Create agents via LLM (15-20 for complex social networks)
-    const agentCount = 15 + Math.floor(Math.random() * 6)
+    // 2. Create agents via LLM (10 agents in batches of 5)
+    const agentCount = 10
+    console.log(`Generating ${agentCount} agents in batches...`)
     const newAgents = await generatePersonalAgents({
       prompt: `${world.environment.description}\n\nSocial context: ${JSON.stringify(world.social_context)}`,
       count: agentCount,
