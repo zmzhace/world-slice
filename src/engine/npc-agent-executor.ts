@@ -1,6 +1,8 @@
-import type { PersonalAgentState, WorldSlice } from '@/domain/world'
+import type { PersonalAgentState, WorldSlice, MemoryRecord } from '@/domain/world'
 import type { AgentPatch } from '@/domain/agents'
 import type { LLMDecisionResult, SystemFeedback } from '@/server/llm/agent-decision-llm'
+import { selectConversationPairs, runConversationScene } from './conversation-scene'
+import type { ConversationResult } from '../domain/conversation'
 
 /**
  * NPC Agent Executor - 分波执行，同位置互动者能看到彼此的行动
@@ -215,7 +217,13 @@ function decisionToPatch(decision: AgentDecision, agent: PersonalAgentState, wor
  */
 export async function executeNpcAgents(
   world: WorldSlice
-): Promise<Array<{ agentId: string; patch: AgentPatch; updatedAgent: PersonalAgentState; systemFeedback?: SystemFeedback }>> {
+): Promise<Array<{
+  agentId: string
+  patch: AgentPatch
+  updatedAgent: PersonalAgentState
+  systemFeedback?: SystemFeedback
+  conversationFeedback?: Array<{ agentId: string; feedback: SystemFeedback }>
+}>> {
   const { npcs } = world.agents
 
   if (npcs.length === 0) {
@@ -230,23 +238,57 @@ export async function executeNpcAgents(
     locationGroups.get(loc)!.push(npc)
   }
 
-  const allResults: Array<{ agentId: string; patch: AgentPatch; updatedAgent: PersonalAgentState; systemFeedback?: SystemFeedback }> = []
+  const allResults: Array<{
+    agentId: string
+    patch: AgentPatch
+    updatedAgent: PersonalAgentState
+    systemFeedback?: SystemFeedback
+    conversationFeedback?: Array<{ agentId: string; feedback: SystemFeedback }>
+  }> = []
 
   // 收集本轮已发生的行动（跨位置也能看到摘要）
   const tickActions: Array<{ name: string; location: string; action: string; dialogue?: string }> = []
 
   // 每个位置组内分两波执行：先行动者 → 回应者
   for (const [location, agents] of locationGroups) {
+    // --- Conversation pre-phase ---
+    const CONVERSATION_THRESHOLD = 0.4
+    const conversationPairs = selectConversationPairs(agents, world, CONVERSATION_THRESHOLD)
+
+    // Get seeds of agents in conversations (they skip the wave)
+    const conversingSeedSet = new Set(conversationPairs.flatMap(p => p.participants))
+    const conversationResults: ConversationResult[] = []
+
+    // Run all conversation scenes at this location in parallel
+    if (conversationPairs.length > 0) {
+      const scenePromises = conversationPairs.map(pair =>
+        runConversationScene(pair.agents, pair.trigger, location, world)
+      )
+      conversationResults.push(...await Promise.all(scenePromises))
+    }
+
+    // Build bystander context from conversation results
+    const bystanderContext = conversationResults
+      .map(r => r.bystander_summary)
+      .join('\n')
+
+    // Filter out conversing agents from waves
+    const waveAgents = agents.filter(
+      a => !conversingSeedSet.has(a.genetics.seed)
+    )
+
     // 第一波：随机选一半先行动
-    const shuffled = [...agents].sort(() => Math.random() - 0.5)
+    const shuffled = [...waveAgents].sort(() => Math.random() - 0.5)
     const wave1 = shuffled.slice(0, Math.ceil(shuffled.length / 2))
     const wave2 = shuffled.slice(Math.ceil(shuffled.length / 2))
 
     // 构建本位置已有的上下文（来自其他位置的行动）
-    const priorContext = tickActions
-      .filter(a => a.location === location)
-      .map(a => `${a.name}: ${a.action}${a.dialogue ? ` (said: "${a.dialogue}")` : ''}`)
-      .join('\n')
+    const priorContext = [
+      bystanderContext,
+      ...tickActions
+        .filter(a => a.location === location)
+        .map(a => `${a.name}: ${a.action}${a.dialogue ? ` (said: "${a.dialogue}")` : ''}`),
+    ].filter(Boolean).join('\n')
 
     // 第一波并行
     const wave1Decisions = await Promise.all(
@@ -285,7 +327,7 @@ export async function executeNpcAgents(
 
     // 第二波：能看到第一波的行动
     if (wave2.length > 0) {
-      const fullContext = [priorContext, ...wave1Context].filter(Boolean).join('\n')
+      const fullContext = [bystanderContext, priorContext, ...wave1Context].filter(Boolean).join('\n')
       const contextForWave2 = fullContext
         ? `[What just happened around you]\n${fullContext}`
         : undefined
@@ -314,6 +356,54 @@ export async function executeNpcAgents(
           location,
           action: decision.behavior_description || decision.action.type,
           dialogue: decision.dialogue,
+        })
+      }
+    }
+    // Collect conversation results into allResults
+    for (const convResult of conversationResults) {
+      for (const participant of convResult.scene.participants) {
+        const agent = agents.find(a => a.genetics.seed === participant)
+        if (!agent) continue
+        const agentRounds = convResult.scene.rounds.filter(r => r.speaker === participant)
+        const lastRound = agentRounds[agentRounds.length - 1]
+        if (!lastRound) continue
+
+        const conversationMemory: MemoryRecord = {
+          id: `conv-mem-${convResult.scene.id}-${participant}`,
+          content: `Conversation with ${convResult.scene.participants.filter(p => p !== participant).join(', ')}: ${convResult.bystander_summary}`,
+          importance: Math.min(1, 0.4 + convResult.scene.rounds.length * 0.1),
+          emotional_weight: lastRound.action.intensity,
+          source: 'social',
+          timestamp: new Date().toISOString(),
+          decay_rate: 0.02,
+          retrieval_strength: 0.8,
+        }
+
+        allResults.push({
+          agentId: participant,
+          patch: {
+            timeDelta: 0,
+            events: [{
+              id: `conv-${convResult.scene.id}-${participant}`,
+              kind: 'micro' as const,
+              summary: convResult.bystander_summary,
+            }],
+            rulesDelta: [],
+            notes: [],
+            meta: {},
+          },
+          updatedAgent: {
+            ...agent,
+            last_action_description: lastRound.dialogue,
+            last_dialogue: lastRound.dialogue,
+            last_inner_monologue: lastRound.inner_monologue,
+            memory_short: [
+              ...agent.memory_short,
+              conversationMemory,
+            ].slice(-20),
+          },
+          systemFeedback: undefined,
+          conversationFeedback: convResult.accumulated_feedback,
         })
       }
     }
