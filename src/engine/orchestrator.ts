@@ -682,6 +682,40 @@ export async function runWorldTick(world: WorldSlice, options: OrchestratorOptio
     }
   }
 
+  // Route conversation feedback (batched from multi-turn scenes)
+  for (const npcResult of npcResults) {
+    if (!npcResult.conversationFeedback) continue
+    for (const { agentId, feedback } of npcResult.conversationFeedback) {
+      // Find witnesses (colocated agents)
+      const agent = next.agents.npcs.find(a => a.genetics.seed === agentId)
+      const witnesses = agent
+        ? next.agents.npcs
+            .filter(a => a.genetics.seed !== agentId && a.location === agent.location)
+            .map(a => a.genetics.seed)
+        : []
+
+      // Route through same 6 systems as single-shot feedback
+      if (feedback.reputation_impact) {
+        reputationSystem.updateFromLLMFeedback(agentId, feedback.reputation_impact, witnesses, nextTick)
+      }
+      if (feedback.current_role || feedback.role_conflict) {
+        roleSystem.updateFromLLMFeedback(agentId, feedback.current_role, feedback.role_conflict)
+      }
+      if (feedback.resource_action) {
+        resourceSystem.claimFromLLMFeedback(agentId, feedback.resource_action)
+      }
+      if (feedback.tension_effect) {
+        tensionSystem.updateFromLLMFeedback(agentId, feedback.tension_effect, nextTick)
+      }
+      if (feedback.meme_spread) {
+        memeSystem.ingestFromLLMFeedback(agentId, feedback.meme_spread, nextTick)
+      }
+      if (feedback.perceived_bias) {
+        biasSystem.recordBias(agentId, feedback.perceived_bias, nextTick)
+      }
+    }
+  }
+
   // ===== Phase 4-5: Advanced mechanism systems =====
   
   // 1. Reputation system — update from NPC actions + social network + decay
