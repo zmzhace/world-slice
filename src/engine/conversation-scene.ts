@@ -9,7 +9,7 @@ import type {
 import { DramaticTensionSystem } from './dramatic-tension-system'
 import { MemePropagationSystem } from './meme-propagation-system'
 import { ReputationSystem } from './reputation-system'
-import { generateConversationTurn } from '../server/llm/agent-decision-llm'
+import type { LLMDecisionResult } from '../server/llm/agent-decision-llm'
 
 type PressureSignal = { type: ConversationTriggerType; score: number; description: string }
 
@@ -183,6 +183,9 @@ export async function runConversationScene(
   location: string,
   world: WorldSlice,
 ): Promise<ConversationResult> {
+  // Dynamic import to avoid pulling Anthropic client into browser bundle
+  const { generateConversationTurn } = await import('../server/llm/agent-decision-llm')
+
   const scene: ConversationScene = {
     id: `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     location,
